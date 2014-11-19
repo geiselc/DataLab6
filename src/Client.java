@@ -1,6 +1,7 @@
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.net.UnknownHostException;
 
 public class Client {
 
@@ -28,6 +29,9 @@ public class Client {
 			serverPort = Integer.parseInt(port);
 			clientSocket = new DatagramSocket(serverPort);
 		
+			serverIP = InetAddress.getByName(ip);
+			fileName = file;
+			
 			// Start threads:
 			s = new Send();
 			s.start();
@@ -43,9 +47,15 @@ public class Client {
 			}
 		} catch (NumberFormatException e){
 			System.out.println("Invalid port entered!");
+			e.printStackTrace();
 			System.exit(1);
 		} catch (SocketException e) {
 			System.out.println("Unable to connect to server on this port!");
+			e.printStackTrace();
+			System.exit(1);
+		} catch (UnknownHostException e) {
+			System.out.println("Couldn't connect to server address!");
+			e.printStackTrace();
 			System.exit(1);
 		} 
 	}
