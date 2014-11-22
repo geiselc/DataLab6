@@ -81,16 +81,18 @@ public class Server {
 				/* Establish connection to client */
 		
 				/* Get Request for file from client*/
-				byte[] buffer = new byte[BUFFER_SIZE];	// max of 1024
+				byte[] receiveData = new byte[BUFFER_SIZE];	// max of 1024
 				
-				receivePacket = new DatagramPacket(buffer, buffer.length);
+				receivePacket = new DatagramPacket(receiveData, receiveData.length);
 				try {
 					serverSocket.receive(receivePacket);
 				} catch (IOException e) {
 					System.out.println("Failed to get packet!");
 					e.printStackTrace();
 				}
-				/* TODO Have a 1024 byte file request from client. What to do with it? */
+				System.out.println("Accepted connection");
+				System.out.println("Recieved: "+new String(receivePacket.getData(), 0, receivePacket.getLength()));
+				
 			}
 		}
 	}
