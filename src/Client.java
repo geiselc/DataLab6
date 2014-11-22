@@ -1,3 +1,5 @@
+import java.io.IOException;
+import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
@@ -9,11 +11,12 @@ public class Client {
 	private Send s;
 	private Receive r;
 	
+	private final int BUFFER_SIZE = 1024;	// max file size we can read at a time
 	private int serverPort;					// server listening port
 	private InetAddress serverIP;			// address of server
 	private DatagramSocket clientSocket;	// client UDP Socket
 	private String fileName;				// name of file to transfer
-	
+
 	public static void main(String[] args){
 		Client client = new Client(args[0], args[1], args[2]);
 	}
@@ -61,6 +64,7 @@ public class Client {
 	}
 	
 	private class Send extends Thread {
+		DatagramPacket sendPacket;
 		public Send(){
 			
 		}
@@ -68,6 +72,17 @@ public class Client {
 		public void run(){
 			while(true){
 				
+				byte[] buffer = new byte[BUFFER_SIZE];	// max of 1024
+				
+				/* TODO Get file request and header info into buffer byte array */
+				
+				sendPacket = new DatagramPacket(buffer, buffer.length);
+				try {
+					clientSocket.send(sendPacket);
+				} catch (IOException e) {
+					System.out.println("Failed to send packet!");
+					e.printStackTrace();
+				}
 			}
 		}
 	}

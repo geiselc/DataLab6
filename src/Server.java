@@ -1,6 +1,7 @@
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
@@ -27,6 +28,7 @@ public class Server {
 	 */
 	public Server(String port) {
 		try{
+			// Establish ports, open sockets, and start listening ...
 			listenPort = Integer.parseInt(port);
 			serverSocket = new DatagramSocket(listenPort);
 			
@@ -37,7 +39,7 @@ public class Server {
 			r.start();
 			while (true) {
 				if (s.isAlive() || r.isAlive()) {
-
+					// Run while open
 				} else {
 					serverSocket.close();
 					break;
@@ -52,6 +54,7 @@ public class Server {
 		} 
 	}
 	
+	/** Send file/packet back to client **/
 	private class Send extends Thread {
 		public Send(){
 			
@@ -64,14 +67,30 @@ public class Server {
 		}
 	}
 
+	/** Receive request from Client **/
 	private class Receive extends Thread {
+		DatagramPacket receivePacket;
+		
 		public Receive(){
 			
 		}
 		
 		public void run(){
-			while(true){
+			while(true){				
 				System.out.println("Listening ...");
+				/* Establish connection to client */
+		
+				/* Get Request for file from client*/
+				byte[] buffer = new byte[BUFFER_SIZE];	// max of 1024
+				
+				receivePacket = new DatagramPacket(buffer, buffer.length);
+				try {
+					serverSocket.receive(receivePacket);
+				} catch (IOException e) {
+					System.out.println("Failed to get packet!");
+					e.printStackTrace();
+				}
+				/* TODO Have a 1024 byte file request from client. What to do with it? */
 			}
 		}
 	}
