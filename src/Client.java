@@ -11,6 +11,7 @@ import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 
 public class Client {
 
@@ -108,13 +109,17 @@ public class Client {
 		byte[] data = receivePacket.getData();
 		//Files f;
 		Path p;
-		
 		p = Paths.get(System.getProperty("user.dir")); 
 		System.out.println(p);
 		try {
 			//String s = new String(data, "UTF-8");
+			
 			//File file = new File(s);
-			Files.write(p, data);
+			if(Files.isWritable(p))
+				Files.write(p, data, StandardOpenOption.CREATE);
+			else
+				System.out.println("Cannot write to this directory");
+			
 		} catch (IOException e) {
 			System.out.println("Could not write file");
 			e.printStackTrace();
