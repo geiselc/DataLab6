@@ -23,6 +23,8 @@ public class Server {
 	private int clientPort;
 	private DatagramSocket serverSocket;	// server UDP Socket
 	private String fileName;				// name of file to transfer
+	private byte[] receiveData;				// data received
+	private byte[] sendData;				// data to send
 
 	public static void main(String[] args) {
 		Server server = new Server(args[0]);
@@ -38,7 +40,12 @@ public class Server {
 			listenPort = Integer.parseInt(port);
 			serverSocket = new DatagramSocket(listenPort);
 			
-			// Start receiving thread:
+			/** Start receiving thread:
+			 * 	Not calling the send thread here, because we only send after we've
+			 *  received and processed a request. Therefore the server should only
+			 *  sit idle with a receive thread open to listen for file requests
+			 *  from clients. 
+			 */
 			r = new Receive();
 			r.start();
 
@@ -74,7 +81,7 @@ public class Server {
 				// If we have a file to send, send it
 				if(!(fileName == null)){
 					System.out.println("Sending ...");
-					byte[] sendData = new byte[BUFFER_SIZE];
+					sendData = new byte[BUFFER_SIZE];
 					sendData = fileName.getBytes();
 					sendPacket = new DatagramPacket(sendData, sendData.length, clientIP, clientPort);
 					try {
@@ -107,11 +114,11 @@ public class Server {
 				/* Establish connection to client */
 		
 				/* Get Request for file from client*/
-				byte[] receiveData = new byte[BUFFER_SIZE];	// max of 1024
+				receiveData = new byte[BUFFER_SIZE];	// max of 1024
 				
 				receivePacket = new DatagramPacket(receiveData, receiveData.length);
 				
-				System.out.println(clientIP+" "+clientPort);
+				System.out.println("Client Connected: "+clientIP+" on port: "+clientPort);
 				try {
 					serverSocket.receive(receivePacket);
 					clientIP = receivePacket.getAddress();

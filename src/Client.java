@@ -2,11 +2,15 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class Client {
 
@@ -102,10 +106,15 @@ public class Client {
 	
 	public void writeFile(){
 		byte[] data = receivePacket.getData();
-		String s = data.toString();
-		File file = new File(receivePacket.getData().toString());
+		//Files f;
+		Path p;
+		
+		p = Paths.get(System.getProperty("user.dir")); 
+		System.out.println(p);
 		try {
-			file.createNewFile();
+			//String s = new String(data, "UTF-8");
+			//File file = new File(s);
+			Files.write(p, data);
 		} catch (IOException e) {
 			System.out.println("Could not write file");
 			e.printStackTrace();
