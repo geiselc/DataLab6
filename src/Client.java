@@ -115,9 +115,14 @@ public class Client {
 			//String s = new String(data, "UTF-8");
 			
 			//File file = new File(s);
-			if(Files.isWritable(p))
-				Files.write(p, data, StandardOpenOption.CREATE);
-			else
+			if(Files.isWritable(p)){
+				FileOutputStream fo = new FileOutputStream(""+p.toString()+"\\"+fileName);
+				fo.write(data);
+				//Files.write(p, data, StandardOpenOption.CREATE);
+				fo.close();
+				
+				//FileInputStream fi =  new FileInputStream(""+p.toString()+fileName);
+			} else
 				System.out.println("Cannot write to this directory");
 			
 		} catch (IOException e) {
