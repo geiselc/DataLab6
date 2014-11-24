@@ -48,6 +48,12 @@ public class Client {
 			serverIP = InetAddress.getByName(ip);
 			fileName = file;
 			
+			//TODO Finish Three-Way Handshake
+			/** Three-Way Handshake **/
+			sendSynPacket();
+			receiveSynAckPacket();
+			sendAckPacket();
+			
 			/** Ask server for file **/
 			sendFileRequest();
 			
@@ -129,5 +135,46 @@ public class Client {
 			System.out.println("Could not write file");
 			e.printStackTrace();
 		}
+	}
+	
+	public void sendSynPacket(){
+		byte[] synData = new byte[BUFFER_SIZE]; //TODO What do we want in the SYN packet?
+		sendPacket = new DatagramPacket(synData, synData.length, serverIP, serverPort);
+		try {
+			clientSocket.send(sendPacket);
+		} catch (IOException e) {
+			System.out.println("Failed to send SYN packet!");
+			e.printStackTrace();
+		}
+		return;
+	}
+	
+	public void receiveSynAckPacket(){
+		byte[] receiveData = new byte[BUFFER_SIZE];
+		
+		receivePacket = new DatagramPacket(receiveData, receiveData.length, clientIP, clientPort);
+		try {
+			clientSocket.receive(receivePacket);
+		} catch (IOException e) {
+			System.out.println("Couldn't get SYN-ACK packet from server!");
+			e.printStackTrace();
+		}
+		receiveData = receivePacket.getData();
+		
+		//TODO When we get the SYN-ACK what do we want to do with it?
+		
+		return;
+	}
+	
+	public void sendAckPacket(){
+		byte[] synData = new byte[BUFFER_SIZE]; //TODO What do we want in the ACK packet?
+		sendPacket = new DatagramPacket(synData, synData.length, serverIP, serverPort);
+		try {
+			clientSocket.send(sendPacket);
+		} catch (IOException e) {
+			System.out.println("Failed to send ACK packet!");
+			e.printStackTrace();
+		}
+		return;
 	}
 }

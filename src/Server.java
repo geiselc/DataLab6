@@ -40,6 +40,12 @@ public class Server {
 			listenPort = Integer.parseInt(port);
 			serverSocket = new DatagramSocket(listenPort);
 			
+			//TODO Finish Three-Way Handshake
+			/** Three-Way Handshake **/
+			receiveSynPacket();
+			sendSynAckPacket();
+			receiveAckPacket();
+			
 			/** Start receiving thread:
 			 * 	Not calling the send thread here, because we only send after we've
 			 *  received and processed a request. Therefore the server should only
@@ -66,6 +72,53 @@ public class Server {
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
 		} 
+	}
+	
+	public void receiveSynPacket(){
+		DatagramPacket receivePacket;
+		receiveData = new byte[BUFFER_SIZE];	// max of 1024
+		receivePacket = new DatagramPacket(receiveData, receiveData.length);
+		try {
+			serverSocket.receive(receivePacket);
+			clientIP = receivePacket.getAddress();
+			clientPort = receivePacket.getPort();
+		} catch (IOException e) {
+			System.out.println("Failed to get SYN packet!");
+			e.printStackTrace();
+		}
+		//TODO When we get the SYN what do we do with it?
+		
+		return;
+	}
+	
+	public void sendSynAckPacket(){
+		DatagramPacket sendPacket;
+		sendData = new byte[BUFFER_SIZE]; //TODO What do we want in the SYN-ACK packet?
+		sendPacket = new DatagramPacket(sendData, sendData.length, clientIP, clientPort);
+		try {
+			serverSocket.send(sendPacket);
+		} catch (IOException e) {
+			System.out.println("Cannet send packet!");
+			e.printStackTrace();
+		}
+		return;
+	}
+	
+	public void receiveAckPacket(){
+		DatagramPacket receivePacket;
+		receiveData = new byte[BUFFER_SIZE];	// max of 1024
+		receivePacket = new DatagramPacket(receiveData, receiveData.length);
+		try {
+			serverSocket.receive(receivePacket);
+			clientIP = receivePacket.getAddress();
+			clientPort = receivePacket.getPort();
+		} catch (IOException e) {
+			System.out.println("Failed to get SYN packet!");
+			e.printStackTrace();
+		}
+		//TODO When we get the ACK what do we do with it?
+		
+		return;
 	}
 	
 	/** Send file/packet back to client **/
@@ -145,7 +198,6 @@ public class Server {
 				
 				s = new Send();
 				s.start();
-				
 			}
 		}
 		
