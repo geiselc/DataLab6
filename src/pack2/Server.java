@@ -64,8 +64,8 @@ public class Server {
 			if(getFirstConnection()) {
 				if(processRequest()) {
 					s = new Send();
-					// TODO: set up so it has a sliding window of 5
-					// based off of the last ack received
+					s.start();
+					getAcks();
 				}
 			}
 		}
@@ -106,15 +106,80 @@ public class Server {
 			return true;
 		}
 		
-		public boolean getPacketNumber() {
-			return false;
-		}
 		public void getAcks() {
-			
+			// TODO
+			// increase last ack if needed
+			// remove from outstanding
+			// have a list to store acks in case of packet out of order
 		}
 	}
 	
 	private class Send extends Thread {
-		
+		public Send() {
+			while(true) {
+				if(!stillSending()) {
+					break;
+				}
+				FileInputStream fis = null;
+				try {
+					fis = new FileInputStream(file);
+				} catch (FileNotFoundException e) {
+					e.printStackTrace();
+					return;
+				}
+				if(outstanding.size()<5) {
+					int number = lastAck+1;
+					while(true) {
+						if(outstanding.contains(new Integer(number))) {
+							number++;
+						} else {
+							break;
+						}
+					}
+					byte[] data = new byte[1015];
+					try {
+						fis.read(data, ((number-1)*1015), data.length);
+						new SendPacket(data, number);
+						outstanding.add(new Integer(number));
+						
+							try {
+								fis.close();
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
+				
+			}
+		}
+		private boolean stillSending() {
+			//TODO
+			// check if we still can send data based off of fis and lastAck
+			return false;
+		}
+	}
+	private class SendPacket extends Thread {
+		public SendPacket(byte[] data, int index) {
+			byte b = (byte)index;
+			byte[] sendData = new byte[data.length+1];
+			sendData[0] = b;
+			for(int i = 1; i < sendData.length; i++) {
+				sendData[i] = data[i-1];
+			}
+			DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, clientIP, clientPort);
+			try {
+				serverSocket.send(sendPacket);
+				System.out.println("Send packet number " + index +" to client");
+			} catch (IOException e) {
+				outstanding.remove(new Integer(index));
+				// i am thinking that a timeout on the send or
+				// another error will occur here, so we will just
+				// say that we are no longer trying to send the packet so
+				// we can re send it above
+				e.printStackTrace();
+			}
+		}
 	}
 }

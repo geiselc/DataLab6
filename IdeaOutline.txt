@@ -4,11 +4,16 @@
 4. Server tries to find file
 5. If file is not found, sends failure packet back
 6. If file is found
-	e) set up our sending window (set to lowest ack+1)
-	f) send 5 packets at a time (first byte is packet number)
+	a) set up our sending window (set to lowest ack+1)
+	b) send 5 packets at a time (first byte is packet number)
 		1) keep track of outstanding packets (with an arraylist)
 		2) keep track of lowest acked packet (with an int)
-	g) client will send an ack when for every new packet they get
-	h) client will have an arraylist of bytes arrays that it files with the data
-	i) once all packets have been received, it will use this byte array to write the file
-	j) if server ever timeouts, re-send as many packets as possible
+	c) client will send an ack when for every new packet they get
+	d) client will have an hashmap of bytes arrays that it files with data
+	e) once all packets have been received, it will use these byte array to write the file
+	f) i am not entirely sure how to handle timeouts (on client and server)
+		1) i think for timeouts on the client side they shouldn't matter (acks get lost -> packet gets resent)
+		2) for the server, im not sure
+	g) also we need to think of some way for the client to know that the server is done sending packets
+	h) there will probably also be other problems that we are not thinking about
+	
