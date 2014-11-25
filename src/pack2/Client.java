@@ -1,14 +1,15 @@
 package pack2;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.util.ArrayList;
 import java.util.HashMap;
 
 public class Client {
-	private final int BUFFER_SIZE = 1024;
 	private final int TIMEOUT = 1000;	
 	private final int CLIENT_PORT = 9875;
 	private int serverPort;				
@@ -107,6 +108,41 @@ public class Client {
 				newData[i] = packetData[i+1];
 			}
 			data.put(index, newData);
+		}
+	}
+	
+	private class WriteFile extends Thread {
+		public WriteFile() {
+			File file = new File(fileName);
+			FileOutputStream fos = null;
+			int tracker = 0;
+			try {
+				fos = new FileOutputStream(file);
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+				return;
+			}
+			for(int i = 0; i < data.size(); i++) {
+				byte[] b = data.get(new Integer(i+1));
+				try {
+					fos.write(b, tracker, b.length);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				tracker+=b.length;
+			}
+			try {
+				fos.flush();
+			} catch (IOException e1) {
+				e1.printStackTrace();
+			}
+			if(fos!=null) {
+				try {
+					fos.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
 		}
 	}
 }
