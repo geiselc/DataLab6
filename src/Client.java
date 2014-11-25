@@ -1,8 +1,5 @@
-import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -11,7 +8,6 @@ import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 
 public class Client {
 
@@ -124,6 +120,7 @@ public class Client {
 			if(Files.isWritable(p)){
 				FileOutputStream fo = new FileOutputStream(""+p.toString()+"\\"+fileName);
 				fo.write(data);
+				//fo.write(b, off, len);
 				//Files.write(p, data, StandardOpenOption.CREATE);
 				fo.close();
 				

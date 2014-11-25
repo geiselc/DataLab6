@@ -1,0 +1,14 @@
+1. Server starts and wait
+2. Client starts
+3. Client send packet to server telling it what file it wants
+4. Server tries to find file
+5. If file is not found, sends failure packet back
+6. If file is found
+	e) set up our sending window (set to lowest ack+1)
+	f) send 5 packets at a time (first byte is packet number)
+		1) keep track of outstanding packets (with an arraylist)
+		2) keep track of lowest acked packet (with an int)
+	g) client will send an ack when for every new packet they get
+	h) client will have an arraylist of bytes arrays that it files with the data
+	i) once all packets have been received, it will use this byte array to write the file
+	j) if server ever timeouts, re-send as many packets as possible

@@ -1,7 +1,7 @@
-import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -17,17 +17,17 @@ public class Server {
 	private Send s;
 	private Receive r;
 	
-	private final int BUFFER_SIZE = 1024;	// max file size we can read at a time
+	private final int BUFFER_SIZE = 1016;	// max file size we can read at a time
 	private int listenPort;					// server listening port
 	private InetAddress clientIP;			// address of connected client
-	private int clientPort;
+	private int clientPort;					// port the client should be listening on
 	private DatagramSocket serverSocket;	// server UDP Socket
 	private String fileName;				// name of file to transfer
 	private byte[] receiveData;				// data received
 	private byte[] sendData;				// data to send
 
 	public static void main(String[] args) {
-		Server server = new Server(args[0]);
+		new Server(args[0]);
 	}
 	
 	/**
@@ -36,15 +36,10 @@ public class Server {
 	public Server(String port) {
 		try{
 			System.out.println("The server ip is: "+InetAddress.getLocalHost());
+		
 			// Establish ports, open sockets, and start listening ...
 			listenPort = Integer.parseInt(port);
 			serverSocket = new DatagramSocket(listenPort);
-			
-			//TODO Finish Three-Way Handshake
-			/** Three-Way Handshake **/
-			receiveSynPacket();
-			sendSynAckPacket();
-			receiveAckPacket();
 			
 			/** Start receiving thread:
 			 * 	Not calling the send thread here, because we only send after we've
@@ -74,53 +69,6 @@ public class Server {
 		} 
 	}
 	
-	public void receiveSynPacket(){
-		DatagramPacket receivePacket;
-		receiveData = new byte[BUFFER_SIZE];	// max of 1024
-		receivePacket = new DatagramPacket(receiveData, receiveData.length);
-		try {
-			serverSocket.receive(receivePacket);
-			clientIP = receivePacket.getAddress();
-			clientPort = receivePacket.getPort();
-		} catch (IOException e) {
-			System.out.println("Failed to get SYN packet!");
-			e.printStackTrace();
-		}
-		//TODO When we get the SYN what do we do with it?
-		
-		return;
-	}
-	
-	public void sendSynAckPacket(){
-		DatagramPacket sendPacket;
-		sendData = new byte[BUFFER_SIZE]; //TODO What do we want in the SYN-ACK packet?
-		sendPacket = new DatagramPacket(sendData, sendData.length, clientIP, clientPort);
-		try {
-			serverSocket.send(sendPacket);
-		} catch (IOException e) {
-			System.out.println("Cannet send packet!");
-			e.printStackTrace();
-		}
-		return;
-	}
-	
-	public void receiveAckPacket(){
-		DatagramPacket receivePacket;
-		receiveData = new byte[BUFFER_SIZE];	// max of 1024
-		receivePacket = new DatagramPacket(receiveData, receiveData.length);
-		try {
-			serverSocket.receive(receivePacket);
-			clientIP = receivePacket.getAddress();
-			clientPort = receivePacket.getPort();
-		} catch (IOException e) {
-			System.out.println("Failed to get SYN packet!");
-			e.printStackTrace();
-		}
-		//TODO When we get the ACK what do we do with it?
-		
-		return;
-	}
-	
 	/** Send file/packet back to client **/
 	private class Send extends Thread {
 		DatagramPacket sendPacket;
@@ -135,6 +83,18 @@ public class Server {
 				if(!(fileName == null)){
 					System.out.println("Sending ...");
 					sendData = new byte[BUFFER_SIZE];
+					File f = new File("fileName");
+					try {
+						FileInputStream fis = new FileInputStream(f);
+						fis.read(sendData, 0, BUFFER_SIZE);
+						fis.close();
+					} catch (FileNotFoundException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 					sendData = fileName.getBytes();
 					sendPacket = new DatagramPacket(sendData, sendData.length, clientIP, clientPort);
 					try {
