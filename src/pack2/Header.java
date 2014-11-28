@@ -10,7 +10,8 @@ public class Header {
 	private boolean fin;
 	private boolean fileNotExists;
 	private int seq;
-	
+	private int lastAck;
+
 	public Header() {
 	}
 	
@@ -87,6 +88,14 @@ public class Header {
 
 	public void setSeq(int seq) {
 		this.seq = seq;
+	}
+	
+	public int getLastAck() {
+		return lastAck;
+	}
+
+	public void setLastAck(int lastAck) {
+		this.lastAck = lastAck;
 	}
 
 }
