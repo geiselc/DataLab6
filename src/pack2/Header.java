@@ -1,53 +1,27 @@
 package pack2;
 
+
 public class Header {
 
-	//public static final int SIZE = 8; 	// in bytes
-	private byte[] data;				// header data
-	private boolean syn;
+	//public static final int SIZE = 8; // in bytes
+	//private byte[] data;				// header data
 	private boolean ack;
 	private boolean rst;
 	private boolean fin;
-	private boolean fileNotExists;
+	private boolean fileExists;
 	private int seq;
 	private int lastAck;
 
 	public Header() {
 	}
 	
-	public Header(boolean syn, boolean ack, boolean rst, boolean fin, boolean fileNotExists, int seq){
-		this.syn = syn;
+	public Header(boolean ack, boolean rst, boolean fin, boolean fileExists, int seq, int lastAck){
 		this.ack = ack;
 		this.rst = rst;
 		this.fin = fin;
+		this.fileExists = fileExists;
 		this.seq = seq;
-	}
-	
-	/**
-	 * TODO
-	 * Track syn, ack, req, fin and seq num
-	 * syn - has connection been established?
-	 * ack - has packet been acknowledged?
-	 * rst - if error occurs, reset
-	 * fin - no more data from sender
-	 * fileNotExists - used to inform client if they request a file that doesn't exist on the server
-	 * seq - current number in sequence - for in-order delivery
-	 */
-	
-	public byte[] getData() {
-		return data;
-	}
-
-	public void setData(byte[] data) {
-		this.data = data;
-	}
-
-	public boolean isSyn() {
-		return syn;
-	}
-
-	public void setSyn(boolean syn) {
-		this.syn = syn;
+		this.lastAck = lastAck;
 	}
 
 	public boolean isAck() {
@@ -62,7 +36,7 @@ public class Header {
 		return rst;
 	}
 
-	public void setRst(boolean req) {
+	public void setRst(boolean rst) {
 		this.rst = rst;
 	}
 
@@ -74,12 +48,12 @@ public class Header {
 		this.fin = fin;
 	}
 	
-	public boolean fileNotExists() {
-		return fileNotExists;
+	public boolean fileExists() {
+		return fileExists;
 	}
 
-	public void setFileNotExists(boolean fileNotExists) {
-		this.fileNotExists = fileNotExists;
+	public void setFileExists(boolean fileExists) {
+		this.fileExists = fileExists;
 	}
 
 	public int getSeq() {
@@ -96,6 +70,10 @@ public class Header {
 
 	public void setLastAck(int lastAck) {
 		this.lastAck = lastAck;
+	}
+	
+	public String toString(){
+		return this.ack+" "+this.rst+" "+this.fin+" "+this.seq+" "+this.lastAck;
 	}
 
 }

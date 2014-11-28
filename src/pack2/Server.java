@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 
 public class Server {
+	private Header header;
 	private int portNumber;
 	private Receive r;
 	private Send s;
@@ -25,16 +26,22 @@ public class Server {
 	private Path filePath;
 	private int lastAck;
 	private ArrayList<Integer> outstanding;
-
+	private boolean ack, rst, fin, fileExists;	// flags from header 
+	private int seqNum;
+	
 	public static void main(String[] args) {
 		new  Server(args[0]);
 	}
 	public Server(String port) {
 		try {
-			lastAck = 0;
+			lastAck = seqNum = 0;
+			header = new Header(ack, rst, fin, fileExists, seqNum, lastAck);
+			outstanding = new ArrayList<Integer>();
+			
 			System.out.println("The server ip is: "+InetAddress.getLocalHost());
 			this.portNumber = Integer.parseInt(port);
 			serverSocket = new DatagramSocket(portNumber);
+			
 			r = new Receive();
 			r.start();
 
@@ -61,13 +68,27 @@ public class Server {
 		
 		public Receive() {
 			while(true){
-				if(getFirstConnection()) {
-					if(processRequest()) {
-						s = new Send();
-						s.start();
-						getAcks();
+				if(lastAck == 0) {
+					if(getFirstConnection()){
+						if(processRequest()) {
+							s = new Send();
+							s.start();
+							//getAcks();
+						} else {
+							// Send packet with header field fileExists set false
+							// Client will see this and exit. 
+							
+							header.setFileExists(false);
+							// a little unsure of how to call send here
+						}
+					
+					} else {
+						// error establishing connection, retry
 					}
-				}
+				} else { 
+					getAcks(); // I'm guessing this method will update our lastAck and seqNum, so we do that
+					// Then call for a send here somehow
+				} 
 			}
 		}
 		
@@ -79,13 +100,12 @@ public class Server {
 				System.out.println("File found at: "+filePath);
 				return true;
 			}
+			
+			header.setFileExists(false);
 			return false;
 		}
 
 		private boolean getFirstConnection() {
-			
-			outstanding = new ArrayList<Integer>();
-			
 			// set up packet
 			byte[] receiveData = new byte[1024];	
 			DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
@@ -105,12 +125,12 @@ public class Server {
 			// get file name
 			fileName = new String(receivePacket.getData(), 0, receivePacket.getLength());
 			
+			lastAck++;
 			System.out.println("Received packet from " + clientIP+":"+clientPort+" asking for "+fileName);
 			return true;
 		}
 		
 		public void getAcks() {
-			System.out.println("Hi");
 			// TODO
 			// increase last ack if needed
 			// remove from outstanding
@@ -121,7 +141,7 @@ public class Server {
 	private class Send extends Thread {
 		public Send() {
 			while(true) {
-				if(!stillSending()) {
+				if(header.isFin()) {
 					break;
 				}
 				FileInputStream fis = null;
@@ -140,16 +160,11 @@ public class Server {
 							break;
 						}
 					}
-					System.out.println(outstanding.toString());
-					System.out.println(lastAck);
-					System.out.println(number);
 					
-					byte[] data = new byte[1015];
+					byte[] data = new byte[1015];	// May need to update this once we attach header and know how big it is
 					
-					try {
-						
+					try {	
 						if(fis.read(data) != -1){
-						//if(fis.read(data, ((number-1)*1015), data.length - ((number-1)*1015)) != -1){
 							new SendPacket(data, number);
 							outstanding.add(new Integer(number));
 								try {
@@ -159,6 +174,7 @@ public class Server {
 								}
 						} else {
 							System.out.println("Reached end of file");
+							header.setFin(true);
 						}
 					} catch (IOException e) {
 						e.printStackTrace();
@@ -166,18 +182,19 @@ public class Server {
 				} 
 			}
 		}
-		private boolean stillSending() {
-			//TODO
-			// check if we still can send data based off of fis and lastAck
-			//return false;
-			return true;
-		}
 	}
+	
 	private class SendPacket extends Thread {
 		public SendPacket(byte[] data, int index) {
 			byte b = (byte)index;
 			byte[] sendData = new byte[data.length+1];
 			sendData[0] = b;
+			
+			/**
+			 * TODO
+			 * Attach header to sendData before sending it
+			 */
+			
 			for(int i = 1; i < sendData.length; i++) {
 				sendData[i] = data[i-1];
 			}
