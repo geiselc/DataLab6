@@ -17,3 +17,40 @@
 	g) also we need to think of some way for the client to know that the server is done sending packets
 	h) there will probably also be other problems that we are not thinking about
 	
+	
+	
+I'm thinking the best way achieve a synchronized transfer is to write a custom header class, containing the 
+proper boolean fields, and a sequence number field. During the transfer process, we track these fields to measure
+where at in the process we are, and when we are done. We can also track when errors occur, and reset/retry from there.
+If there's a way to track these things without a header class, even better since it means less overhead. 
+I'll dump my ideas here:
+1. Establish connection between server and client
+   a. Server starts and waits for connection request from client (packet with syn flag set);
+   b. Client starts up and sends packet to Server with custom header with syn flag set. 
+   c. Server receives packet from client with syn flag set.
+   d. Server sends packet to client with syn & ack flag set.
+   e. Client receives packet with syn & ack flag set. 
+2. Connection Established. Begin data transfer.
+   a. Client sends packet with ack flag set, and a request for a file. Server does not process a file request 
+      until it gets that ack flag from client.
+   b. Server checks if file is available. 
+      i. If file does not exist, server sends back packet with fileNotExists flag set. Client receives this, and exits.
+      ii. If file does exist, server can begin sending. Enter main data transfer loop.
+3. Send File until fin flag set.
+	a. Enter main loop, as outlined in step 6 in Adam's idea above. 
+	b. Once the server sees the entire file has been read, it sends the final packet with fin flag set.
+	c. Client keeps reading in data until it gets a packet with fin flag set.
+	d. Client sends a packet with fin & ack set to acknowledge to server that it is done receiving.
+	e. Server sends an ack back to Client so the client knows to close the connection. 
+	f. Server waits for the timeout period before closing it's connection.
+If rst flag is set at all during this process, it indicates an error. We should structure our loops so that if this is
+ever detected, we can just recall the current instance of the loop as a means of retry. 
+	
+I'm referencing the main process outlined here: http://en.wikipedia.org/wiki/Transmission_Control_Protocol
+
+Things I'm unsure on:
+- What does last-ack do, and how are we tracking it?
+- Do we need anything else on our header class?
+- Do we need a header class, or is there a more efficient way to track these fields between
+  client and server?
+- Size of header object in bytes 

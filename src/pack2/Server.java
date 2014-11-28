@@ -60,12 +60,13 @@ public class Server {
 	private class Receive extends Thread {
 		
 		public Receive() {
-			
-			if(getFirstConnection()) {
-				if(processRequest()) {
-					s = new Send();
-					s.start();
-					getAcks();
+			while(true){
+				if(getFirstConnection()) {
+					if(processRequest()) {
+						s = new Send();
+						s.start();
+						getAcks();
+					}
 				}
 			}
 		}
@@ -82,6 +83,8 @@ public class Server {
 		}
 
 		private boolean getFirstConnection() {
+			
+			outstanding = new ArrayList<Integer>();
 			
 			// set up packet
 			byte[] receiveData = new byte[1024];	
@@ -102,11 +105,12 @@ public class Server {
 			// get file name
 			fileName = new String(receivePacket.getData(), 0, receivePacket.getLength());
 			
-			System.out.println("Received packer from " + clientIP+":"+clientPort+" asking for "+fileName);
+			System.out.println("Received packet from " + clientIP+":"+clientPort+" asking for "+fileName);
 			return true;
 		}
 		
 		public void getAcks() {
+			System.out.println("Hi");
 			// TODO
 			// increase last ack if needed
 			// remove from outstanding
@@ -136,28 +140,37 @@ public class Server {
 							break;
 						}
 					}
+					System.out.println(outstanding.toString());
+					System.out.println(lastAck);
+					System.out.println(number);
+					
 					byte[] data = new byte[1015];
+					
 					try {
-						fis.read(data, ((number-1)*1015), data.length);
-						new SendPacket(data, number);
-						outstanding.add(new Integer(number));
 						
-							try {
-								fis.close();
-							} catch (IOException e) {
-								e.printStackTrace();
-							}
+						if(fis.read(data) != -1){
+						//if(fis.read(data, ((number-1)*1015), data.length - ((number-1)*1015)) != -1){
+							new SendPacket(data, number);
+							outstanding.add(new Integer(number));
+								try {
+									fis.close();
+								} catch (IOException e) {
+									e.printStackTrace();
+								}
+						} else {
+							System.out.println("Reached end of file");
+						}
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
-				}
-				
+				} 
 			}
 		}
 		private boolean stillSending() {
 			//TODO
 			// check if we still can send data based off of fis and lastAck
-			return false;
+			//return false;
+			return true;
 		}
 	}
 	private class SendPacket extends Thread {

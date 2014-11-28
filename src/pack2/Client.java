@@ -89,10 +89,15 @@ public class Client {
 				try {
 					clientSocket.receive(receivePacket);
 					new Decode(receivePacket);
+					
+					// TODO Check here to see if still data to receive from server
+					// break if not
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
 			}
+			
+			//new WriteFile();
 		}
 	}
 	
