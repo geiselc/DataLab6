@@ -20,6 +20,7 @@ public class Client {
 	private Send s;
 	private Receive r;
 	private HashMap<Integer, byte[]> data;
+	private Header header;
 	
 	public static void main(String[] args) {
 		new Client(args[0], args[1], args[2]);
@@ -27,6 +28,11 @@ public class Client {
 	
 	public Client(String serverIP, String serverPort, String fileName) {
 		try {
+			int i = 1024;
+			byte b = (byte) (i % 128);
+			System.out.println(i + " " + b);
+			System.exit(0);
+			header = new Header();
 			data = new HashMap<Integer, byte[]>();
 			this.serverIP = InetAddress.getByName(serverIP);
 			this.fileName = fileName;
@@ -88,24 +94,37 @@ public class Client {
 				DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
 				try {
 					clientSocket.receive(receivePacket);
+					
+					// TODO decode header on packet and update fields to be checked
+					if(!header.fileExists()){
+						System.out.println("File: "+fileName+" not found.");
+						clientSocket.close();
+						System.exit(0);
+					}
+					
 					new Decode(receivePacket);
 					
-					// TODO Check here to see if still data to receive from server
-					// break if not
+					// TODO code a method to check for sequence number, if accurate continue, else drop the packet 
+					
+					// Check to see if still data to receive from server
+					if(header.isFin())
+						break;
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
 			}
 			
-			//new WriteFile();
+			new WriteFile();
 		}
 	}
 	
 	private class Decode extends Thread {
 		public Decode(DatagramPacket packet) {
+			System.out.println("HERE");
 			byte[] packetData = packet.getData();
 			Byte b = packetData[0];
 			int index = b.intValue();
+			index--; // Since incremented lastAck in server code
 			new Send(index);
 			System.out.println("Received packet #"+index);
 			byte[] newData = new byte[packetData.length-1];
@@ -118,6 +137,7 @@ public class Client {
 	
 	private class WriteFile extends Thread {
 		public WriteFile() {
+			System.out.println("Here");
 			File file = new File(fileName);
 			FileOutputStream fos = null;
 			int tracker = 0;
