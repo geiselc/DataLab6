@@ -12,6 +12,7 @@ import java.net.UnknownHostException;
 import java.nio.file.Paths;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 
 public class Server {
 	private Header header;
@@ -26,34 +27,39 @@ public class Server {
 	private Path filePath;
 	private int lastAck;
 	private ArrayList<Integer> outstanding;
-	private boolean ack, rst, fin, fileExists;	// flags from header 
-	private int seqNum;
-	
+	private ArrayList<Integer> gotAcks;
+	private boolean lastAckReceived;
+	private int lastAckNumber;
+
 	public static void main(String[] args) {
-		new  Server(args[0]);
+		new Server(args[0]);
 	}
+
 	public Server(String port) {
 		try {
-			lastAck = seqNum = 0;
-			header = new Header(ack, rst, fin, fileExists, seqNum, lastAck);
+			lastAck = -1;
 			outstanding = new ArrayList<Integer>();
-			
-			System.out.println("The server ip is: "+InetAddress.getLocalHost());
+			gotAcks = new ArrayList<Integer>();
+			lastAckReceived = false;
+			lastAckNumber = 999;
+
+			System.out.println("The server ip is: "
+					+ InetAddress.getLocalHost());
 			this.portNumber = Integer.parseInt(port);
 			serverSocket = new DatagramSocket(portNumber);
-			
+
 			r = new Receive();
 			r.start();
 
 			while (true) {
 				if (r.isAlive()) {
-					
+
 				} else {
 					serverSocket.close();
 					return;
 				}
 			}
-		} catch (NumberFormatException e){
+		} catch (NumberFormatException e) {
 			System.out.println("Invalid port entered!");
 			System.exit(1);
 		} catch (SocketException e) {
@@ -61,55 +67,50 @@ public class Server {
 			System.exit(1);
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
-		} 
+		}
 	}
-	
+
 	private class Receive extends Thread {
-		
-		public Receive() {
-			while(true){
-				if(lastAck == 0) {
-					if(getFirstConnection()){
-						if(processRequest()) {
-							s = new Send();
-							s.start();
-							//getAcks();
-						} else {
-							// Send packet with header field fileExists set false
-							// Client will see this and exit. 
-							
-							header.setFileExists(false);
-							// a little unsure of how to call send here
-						}
-					
+
+		public void run() {
+			while (true) {
+				if (getFirstConnection()) {
+					if (processRequest()) {
+						s = new Send();
+						s.start();
+						gotAcksLoop();
 					} else {
-						// error establishing connection, retry
+						NoFilePacket nfp = new NoFilePacket();
+						nfp.start();
+						lastAckNumber = 0;
+						gotAcksLoop();
 					}
-				} else { 
-					getAcks(); // I'm guessing this method will update our lastAck and seqNum, so we do that
-					// Then call for a send here somehow
-				} 
+
+				} else {
+					// error establishing connection, retry
+				}
 			}
 		}
-		
-		private boolean processRequest(){
+
+		private boolean processRequest() {
 			file = new File(fileName);
-			
-			if(file.exists()){
+
+			if (file.exists()) {
 				filePath = Paths.get(file.getAbsolutePath());
-				System.out.println("File found at: "+filePath);
+				System.out.println("File found at: " + filePath);
 				return true;
 			}
-			
+
 			header.setFileExists(false);
 			return false;
 		}
 
 		private boolean getFirstConnection() {
 			// set up packet
-			byte[] receiveData = new byte[1024];	
-			DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-			
+			byte[] receiveData = new byte[1024];
+			DatagramPacket receivePacket = new DatagramPacket(receiveData,
+					receiveData.length);
+
 			// Receive packet
 			try {
 				serverSocket.receive(receivePacket);
@@ -117,33 +118,72 @@ public class Server {
 				e.printStackTrace();
 				return false;
 			}
-			
+
 			// get clientPort and clientIP
 			clientPort = receivePacket.getPort();
 			clientIP = receivePacket.getAddress();
-			
+
 			// get file name
-			fileName = new String(receivePacket.getData(), 0, receivePacket.getLength());
-			
+			fileName = new String(receivePacket.getData(), 0,
+					receivePacket.getLength());
+
 			lastAck++;
-			System.out.println("Received packet from " + clientIP+":"+clientPort+" asking for "+fileName);
+			System.out.println("Received packet from " + clientIP + ":"
+					+ clientPort + " asking for " + fileName);
 			return true;
 		}
-		
-		public void getAcks() {
-			// TODO
+
+		public void gotAcksLoop() {
+
+			while (!lastAckReceived) {
+				if (outstanding.size() > 0) {
+					byte[] receiveData = new byte[1024];
+					DatagramPacket receivePacket = new DatagramPacket(
+							receiveData, receiveData.length);
+
+					// Receive packet
+					try {
+						serverSocket.receive(receivePacket);
+						byte b = receivePacket.getData()[0];
+						int seqNum = (int) b;
+						getAcks(seqNum);
+					} catch (Exception e) {
+						// timeout has occured
+						// so we do not ack their ack,
+						// meaning the packet will be sent again
+					}
+				}
+			}
+		}
+
+		public void getAcks(int seq) {
+			if (!gotAcks.contains(new Integer(seq))) {
+				gotAcks.add(new Integer(seq));
+			}
+			if (outstanding.contains(new Integer(seq))) {
+				outstanding.remove(new Integer(seq));
+			}
 			// increase last ack if needed
-			// remove from outstanding
-			// have a list to store acks in case of packet out of order
+			if (seq == lastAck + 1) {
+				lastAck++;
+				Collections.sort(gotAcks);
+				for (int i = seq + 1; i < gotAcks.size(); i++) {
+					if (gotAcks.get(i) == lastAck + 1) {
+						lastAck++;
+					} else {
+						break;
+					}
+				}
+			}
+			if (lastAck == lastAckNumber) {
+				lastAckReceived = true;
+			}
 		}
 	}
-	
+
 	private class Send extends Thread {
-		public Send() {
-			while(true) {
-				if(header.isFin()) {
-					break;
-				}
+		public void run() {
+			while (r.isAlive()) {
 				FileInputStream fis = null;
 				try {
 					fis = new FileInputStream(file);
@@ -151,57 +191,96 @@ public class Server {
 					e.printStackTrace();
 					return;
 				}
-				if(outstanding.size()<5) {
-					int number = lastAck+1;
-					while(true) {
-						if(outstanding.contains(new Integer(number))) {
+				
+				if (outstanding.size() < 5) {
+
+					byte[] data = new byte[1019];
+					// determine what packet to send
+					int number = lastAck + 1;
+					while (true) {
+						if (outstanding.contains(new Integer(number))) {
 							number++;
 						} else {
 							break;
 						}
 					}
-					
-					byte[] data = new byte[1015];	// May need to update this once we attach header and know how big it is
-					
-					try {	
-						if(fis.read(data) != -1){
-							new SendPacket(data, number);
+
+					try {
+						if (fis.read(data, data.length * number, data.length) != 0) {
+							SendPacket sp = new SendPacket(data, number, false);
+							sp.start();
 							outstanding.add(new Integer(number));
-								try {
-									fis.close();
-								} catch (IOException e) {
-									e.printStackTrace();
-								}
+							try {
+								fis.close();
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
 						} else {
-							System.out.println("Reached end of file");
-							header.setFin(true);
+							SendPacket sp = new SendPacket(data, number, true);
+							sp.start();
+							outstanding.add(new Integer(number));
+							lastAckNumber = number;
+							try {
+								fis.close();
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
 						}
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
-				} 
+				}
 			}
 		}
 	}
-	
-	private class SendPacket extends Thread {
-		public SendPacket(byte[] data, int index) {
-			byte b = (byte)index;
-			byte[] sendData = new byte[data.length+1];
-			sendData[0] = b;
-			
-			/**
-			 * TODO
-			 * Attach header to sendData before sending it
-			 */
-			
-			for(int i = 1; i < sendData.length; i++) {
-				sendData[i] = data[i-1];
-			}
-			DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, clientIP, clientPort);
+
+	private class NoFilePacket extends Thread {
+		private Header h;
+
+		public void run() {
+			h = new Header(false, false, true, false, 0);
+			byte[] sendData = h.setAndGetData();
+			DatagramPacket sendPacket = new DatagramPacket(sendData,
+					sendData.length, clientIP, clientPort);
 			try {
 				serverSocket.send(sendPacket);
-				System.out.println("Send packet number " + index +" to client");
+				System.out
+						.println("Sent packet to client informing on file not found");
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private class SendPacket extends Thread {
+		private byte[] data;
+		private int index;
+		private boolean last;
+
+		public SendPacket(byte[] data, int index, boolean last) {
+			this.data = data;
+			this.index = index;
+			this.last = last;
+		}
+
+		public void run() {
+			byte[] sendData = new byte[data.length + 5];
+			Header h = new Header(false, false, last, true, index);
+			byte[] headData = h.setAndGetData();
+			for (int i = 0; i < h.SIZE; i++) {
+				sendData[i] = headData[i];
+			}
+
+			for (int i = 5; i < sendData.length; i++) {
+				sendData[i] = sendData[i - 5];
+			}
+
+			DatagramPacket sendPacket = new DatagramPacket(sendData,
+					sendData.length, clientIP, clientPort);
+			try {
+				serverSocket.send(sendPacket);
+				System.out
+						.println("Send packet number " + index + " to client");
 			} catch (IOException e) {
 				outstanding.remove(new Integer(index));
 				// i am thinking that a timeout on the send or

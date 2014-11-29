@@ -10,17 +10,17 @@ import java.net.InetAddress;
 import java.util.HashMap;
 
 public class Client {
-	private final int TIMEOUT = 1000;	
 	private final int CLIENT_PORT = 9875;
 	private int serverPort;				
 	private InetAddress serverIP;			
 	private DatagramSocket clientSocket;	
 	private String fileName;				
-	private InetAddress clientIP;
 	private Send s;
 	private Receive r;
 	private HashMap<Integer, byte[]> data;
 	private Header header;
+	private boolean written;
+	private int last;
 	
 	public static void main(String[] args) {
 		new Client(args[0], args[1], args[2]);
@@ -28,10 +28,8 @@ public class Client {
 	
 	public Client(String serverIP, String serverPort, String fileName) {
 		try {
-			int i = 1024;
-			byte b = (byte) (i % 128);
-			System.out.println(i + " " + b);
-			System.exit(0);
+			last = 999;
+			written = false;
 			header = new Header();
 			data = new HashMap<Integer, byte[]>();
 			this.serverIP = InetAddress.getByName(serverIP);
@@ -52,13 +50,14 @@ public class Client {
 	
 	private class Send extends Thread {
 		public Send() {
+			
+		}
+		public void run() {
 			if(sendFileName()) {
 				r = new Receive();
 				r.start();
+				waiting();
 			}
-		}
-		public Send(int x) {
-			ack(x);
 		}
 		private boolean sendFileName() {
 			byte[] sendData = fileName.getBytes();
@@ -72,71 +71,96 @@ public class Client {
 			}
 			return true;
 		}
-		public void ack(int num) {
+		public void waiting() {
+			while(!written){
+				
+			}
+		    return;
+		}
+	}
+	
+	private class Ack extends Thread {
+		private int num;
+		public Ack(int x) {
+			num = x;
+		}
+		public void run() {
 			String str = num+"";
 			byte[] sendData = str.getBytes();
 			DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverIP, serverPort);
 			try {
 				clientSocket.send(sendPacket);
-				System.out.println("Send packet to server asking for "+fileName);
+				System.out.println("Send packet to server acknowleding packet number "+num);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
 	}
 	private class Receive extends Thread {
-		public Receive() {
-			receivePackets();
-		}
-		private void receivePackets() {
-			while(true) {
+		public void run() {
+			while(last+1 != data.size()) {
 				byte[] receiveData = new byte[1024];
 				DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
 				try {
 					clientSocket.receive(receivePacket);
+					byte[] headerData = new byte[6];
+					for(int i = 0; i < headerData.length; i++) {
+						headerData[i] = receivePacket.getData()[i];
+					}
+					header = new Header(headerData);
 					
-					// TODO decode header on packet and update fields to be checked
 					if(!header.fileExists()){
+						System.out.println("Received packet from server");
 						System.out.println("File: "+fileName+" not found.");
 						clientSocket.close();
 						System.exit(0);
 					}
 					
-					new Decode(receivePacket);
-					
-					// TODO code a method to check for sequence number, if accurate continue, else drop the packet 
+					Decode d = new Decode(receivePacket, header);
+					d.start();
 					
 					// Check to see if still data to receive from server
-					if(header.isFin())
+					if(header.isFin()) {
+						last = header.getSeq();
+					}
+					if(last+1 == data.size())
 						break;
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
 			}
-			
-			new WriteFile();
 		}
 	}
 	
 	private class Decode extends Thread {
-		public Decode(DatagramPacket packet) {
-			System.out.println("HERE");
+		private DatagramPacket packet;
+		private Header h;
+		public Decode(DatagramPacket p, Header h) {
+			this.packet = p;
+			this.h = h;
+		}
+		public void run() {
 			byte[] packetData = packet.getData();
-			Byte b = packetData[0];
-			int index = b.intValue();
-			index--; // Since incremented lastAck in server code
-			new Send(index);
-			System.out.println("Received packet #"+index);
-			byte[] newData = new byte[packetData.length-1];
+			System.out.println("Received packet #"+h.getSeq());
+			byte[] newData = new byte[packetData.length-6];
 			for(int i = 0; i < newData.length; i++) {
-				newData[i] = packetData[i+1];
+				newData[i] = packetData[i+6];
 			}
-			data.put(index, newData);
+			if (!data.containsKey(new Integer(h.getSeq()))) {
+				data.put(new Integer(h.getSeq()), newData);
+			}
+			Ack ack = new Ack(h.getSeq());
+			ack.start();
+			
+			if(last+1 == data.size()) {
+				WriteFile wf = new WriteFile();
+				wf.start();
+			}
 		}
 	}
 	
 	private class WriteFile extends Thread {
-		public WriteFile() {
+		public void run() {
 			System.out.println("Here");
 			File file = new File(fileName);
 			FileOutputStream fos = null;
@@ -168,6 +192,7 @@ public class Client {
 					e.printStackTrace();
 				}
 			}
+			written = true;
 		}
 	}
 }

@@ -1,27 +1,30 @@
 package pack2;
-
-
 public class Header {
 
-	//public static final int SIZE = 8; // in bytes
-	//private byte[] data;				// header data
+	public final int SIZE = 5; // in bytes
+	private byte[] data;				// header data
 	private boolean ack;
 	private boolean rst;
 	private boolean fin;
 	private boolean fileExists;
 	private int seq;
-	private int lastAck;
 
 	public Header() {
+		data = new byte[SIZE];
 	}
 	
-	public Header(boolean ack, boolean rst, boolean fin, boolean fileExists, int seq, int lastAck){
+	public Header(boolean ack, boolean rst, boolean fin, boolean fileExists, int seq){
 		this.ack = ack;
 		this.rst = rst;
 		this.fin = fin;
 		this.fileExists = fileExists;
 		this.seq = seq;
-		this.lastAck = lastAck;
+		data = new byte[SIZE];
+	}
+	
+	public Header(byte[] bytes) {
+		data = bytes;
+		decodeData();
 	}
 
 	public boolean isAck() {
@@ -64,16 +67,78 @@ public class Header {
 		this.seq = seq;
 	}
 	
-	public int getLastAck() {
-		return lastAck;
-	}
-
-	public void setLastAck(int lastAck) {
-		this.lastAck = lastAck;
-	}
-	
 	public String toString(){
-		return this.ack+" "+this.rst+" "+this.fin+" "+this.seq+" "+this.lastAck;
+		return this.ack+" "+this.rst+" "+this.fin+" "+this.seq;
 	}
-
+	/* data in header by index:
+	 * 0	ack : boolean : 0 = false, 1 = true
+	 * 1	rst : boolean : 0 = false, 1 = true
+	 * 2	fin : boolean : 0 = false, 1 = true
+	 * 3	fileExists : boolean : 0 = false, 1 = true
+	 * 4	seq
+	*/
+	public byte[] getData() {
+		return data;
+	}
+	public byte[] setAndGetData() {
+		for(int i = 0; i < SIZE; i++) {
+			switch(i) {
+			case 0:
+				if(ack) {
+					data[i] = (byte)1;
+				} else {
+					data[i] = (byte)0;
+				}
+				break;
+			case 1:
+				if(rst) {
+					data[i] = (byte)1;
+				} else {
+					data[i] = (byte)0;
+				}
+				break;
+			case 2:
+				if(fin) {
+					data[i] = (byte)1;
+				} else {
+					data[i] = (byte)0;
+				}
+				break;
+			case 3:
+				if(fileExists) {
+					data[i] = (byte)1;
+				} else {
+					data[i] = (byte)0;
+				}
+				break;
+			default:
+				data[i] = (byte)seq;
+				break;
+			}
+		}
+		return data;
+	}
+	public void decodeData() {
+		for(int i = 0; i < SIZE; i++) {
+			byte b = data[i];
+			boolean one = (b == (byte)1);
+			switch(i) {
+			case 0:
+				ack = one;
+				break;
+			case 1:
+				rst = one;
+				break;
+			case 2:
+				fin = one;
+				break;
+			case 3:
+				fileExists = one;
+				break;
+			default:
+				seq = (int)b;
+				break;
+			}
+		}
+	}
 }
