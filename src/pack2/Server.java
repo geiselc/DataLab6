@@ -13,6 +13,7 @@ import java.nio.file.Paths;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 
 public class Server {
 	private Header header;
@@ -30,6 +31,7 @@ public class Server {
 	private ArrayList<Integer> gotAcks;
 	private boolean lastAckReceived;
 	private int lastAckNumber;
+	private HashMap<Integer, byte[]> map;
 
 	public static void main(String[] args) {
 		new Server(args[0]);
@@ -42,6 +44,7 @@ public class Server {
 			gotAcks = new ArrayList<Integer>();
 			lastAckReceived = false;
 			lastAckNumber = 999;
+			map = new HashMap<Integer, byte[]>();
 
 			System.out.println("The server ip is: "
 					+ InetAddress.getLocalHost());
@@ -186,7 +189,9 @@ public class Server {
 			while (r.isAlive()) {
 				FileInputStream fis = null;
 				try {
-					fis = new FileInputStream(file);
+					if (fis == null) {
+						fis = new FileInputStream(file);
+					}
 				} catch (FileNotFoundException e) {
 					e.printStackTrace();
 					return;
@@ -206,17 +211,14 @@ public class Server {
 					}
 
 					try {
-						if (fis.read(data, data.length * number, data.length) != 0) {
-							SendPacket sp = new SendPacket(data, number, false);
+						if (fis.read(data) >= data.length) {
+							map.put(new Integer(number), data);
+							SendPacket sp = new SendPacket(number, false);
 							sp.start();
 							outstanding.add(new Integer(number));
-							try {
-								fis.close();
-							} catch (IOException e) {
-								e.printStackTrace();
-							}
 						} else {
-							SendPacket sp = new SendPacket(data, number, true);
+							map.put(new Integer(number), data);
+							SendPacket sp = new SendPacket(number, true);
 							sp.start();
 							outstanding.add(new Integer(number));
 							lastAckNumber = number;
@@ -257,10 +259,10 @@ public class Server {
 		private int index;
 		private boolean last;
 
-		public SendPacket(byte[] data, int index, boolean last) {
-			this.data = data;
+		public SendPacket(int index, boolean last) {
 			this.index = index;
 			this.last = last;
+			this.data = map.get(new Integer(index));
 		}
 
 		public void run() {
