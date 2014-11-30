@@ -7,6 +7,10 @@ public class Header {
 	private boolean rst;
 	private boolean fin;
 	private boolean fileExists;
+	private int seq1;
+	private int seq2;
+	private int seq3;
+	private int seqOff;
 	private int seq;
 
 	public Header() {
@@ -20,8 +24,16 @@ public class Header {
 		this.fileExists = fileExists;
 		this.seq = seq;
 		this.data = new byte[SIZE];
+		if(seq%2==0) {
+			seqOff = 0;
+		} else {
+			seqOff = 1;
+			//seq-=1;
+		}
+		
 	}
 	
+
 	public Header(byte[] bytes) {
 		data = bytes;
 		decodeData();
@@ -67,6 +79,46 @@ public class Header {
 		this.seq = seq;
 	}
 	
+	public int getSeq1() {
+		return seq1;
+	}
+
+	public void setSeq1(int seq1) {
+		this.seq1 = seq1;
+	}
+
+	public int getSeq2() {
+		return seq2;
+	}
+
+	public void setSeq2(int seq2) {
+		this.seq2 = seq2;
+	}
+
+	public int getSeq3() {
+		return seq3;
+	}
+
+	public void setSeq3(int seq3) {
+		this.seq3 = seq3;
+	}
+
+	public int getSeqOff() {
+		return seqOff;
+	}
+
+	public void setSeqOff(int seqOff) {
+		this.seqOff = seqOff;
+	}
+
+	public boolean isFileExists() {
+		return fileExists;
+	}
+
+	public void setData(byte[] data) {
+		this.data = data;
+	}
+
 	public String toString(){
 		return this.ack+" "+this.rst+" "+this.fin+" "+this.seq;
 	}
@@ -75,7 +127,10 @@ public class Header {
 	 * 1	rst : boolean : 0 = false, 1 = true
 	 * 2	fin : boolean : 0 = false, 1 = true
 	 * 3	fileExists : boolean : 0 = false, 1 = true
-	 * 4	seq
+	 * 4	seq1
+	 * 5	seq2
+	 * 6	seq3
+	 * 7	seqOff
 	*/
 	public byte[] getData() {
 		return data;

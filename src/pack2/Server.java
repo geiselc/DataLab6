@@ -16,7 +16,6 @@ import java.util.Collections;
 import java.util.HashMap;
 
 public class Server {
-	private Header header;
 	private int portNumber;
 	private Receive r;
 	private Send s;
@@ -65,7 +64,7 @@ public class Server {
 					
 				}
 			}
-			
+			System.out.println("All acks received, server closing");
 			serverSocket.close();
 			return;
 		} catch (NumberFormatException e) {
