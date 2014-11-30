@@ -19,7 +19,7 @@ public class Header {
 		this.fin = fin;
 		this.fileExists = fileExists;
 		this.seq = seq;
-		data = new byte[SIZE];
+		this.data = new byte[SIZE];
 	}
 	
 	public Header(byte[] bytes) {
