@@ -11,21 +11,21 @@ import java.util.HashMap;
 
 public class Client {
 	private final int CLIENT_PORT = 9875;
-	private int serverPort;				
-	private InetAddress serverIP;			
-	private DatagramSocket clientSocket;	
-	private String fileName;				
+	private int serverPort;
+	private InetAddress serverIP;
+	private DatagramSocket clientSocket;
+	private String fileName;
 	private Send s;
 	private Receive r;
 	private HashMap<Integer, byte[]> data;
 	private Header header;
 	private boolean written;
 	private int last;
-	
+
 	public static void main(String[] args) {
 		new Client(args[0], args[1], args[2]);
 	}
-	
+
 	public Client(String serverIP, String serverPort, String fileName) {
 		try {
 			last = 999;
@@ -38,92 +38,124 @@ public class Client {
 			clientSocket = new DatagramSocket(CLIENT_PORT);
 			s = new Send();
 			s.start();
-			while(s.isAlive()) {
-				
+			while (s.isAlive()) {
+
 			}
 			clientSocket.close();
+			System.exit(0);
 			return;
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
-	
+
 	private class Send extends Thread {
 		public Send() {
-			
+
 		}
+
 		public void run() {
-			if(sendFileName()) {
+			if (sendFileName()) {
 				r = new Receive();
 				r.start();
 				waiting();
 			}
 		}
+
 		private boolean sendFileName() {
 			byte[] sendData = fileName.getBytes();
-			DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverIP, serverPort);
+			DatagramPacket sendPacket = new DatagramPacket(sendData,
+					sendData.length, serverIP, serverPort);
 			try {
 				clientSocket.send(sendPacket);
-				System.out.println("Send packet to server asking for "+fileName);
+				System.out.println("Send packet to server asking for "
+						+ fileName);
 			} catch (IOException e) {
 				e.printStackTrace();
 				return false;
 			}
 			return true;
 		}
+
 		public void waiting() {
-			while(!written){
-				
+			while (!written) {
+
 			}
-		    return;
+			return;
 		}
 	}
-	
+
 	private class Ack extends Thread {
 		private int num;
+
 		public Ack(int x) {
 			num = x;
 		}
+
 		public void run() {
-			String str = num+"";
-			byte[] sendData = str.getBytes();
-			DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverIP, serverPort);
+			String str = num + "";
+			// byte[] sendData = str.getBytes();
+
+			int i = 0;
+			while (num > 250) {
+				i++;
+				num -= 250;
+			}
+
+			byte[] sendData = new byte[i + 1];
+			for (int j = 0; j <= i; j++) {
+				sendData[i] = (byte) 250;
+				if (i == 0)
+					sendData[i] = (byte) num;
+			}
+			
+			DatagramPacket sendPacket = new DatagramPacket(sendData,
+					sendData.length, serverIP, serverPort);
 			try {
 				clientSocket.send(sendPacket);
-				System.out.println("Send packet to server acknowleding packet number "+num);
+				System.out
+						.println("Send packet to server acknowleding packet number "
+								+ num);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
 	}
+
 	private class Receive extends Thread {
 		public void run() {
-			while(last+1 != data.size()) {
+			while (last != data.size()) {
 				byte[] receiveData = new byte[1024];
-				DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+				DatagramPacket receivePacket = new DatagramPacket(receiveData,
+						receiveData.length);
 				try {
 					clientSocket.receive(receivePacket);
-					byte[] headerData = new byte[6];
-					for(int i = 0; i < headerData.length; i++) {
+					byte[] headerData = new byte[8];
+					for (int i = 0; i < headerData.length; i++) {
 						headerData[i] = receivePacket.getData()[i];
 					}
 					header = new Header(headerData);
-					
-					if(!header.fileExists()){
+
+					if (!header.fileExists()) {
 						System.out.println("Received packet from server");
-						System.out.println("File: "+fileName+" not found.");
+						System.out.println("File: " + fileName + " not found.");
+						Ack a = new Ack(0);
+						a.start();
+						while(a.isAlive()){
+							
+						}
 						clientSocket.close();
 						System.exit(0);
 					}
-					
+
 					Decode d = new Decode(receivePacket, header);
 					d.start();
-					
+
 					// Check to see if still data to receive from server
-					if(header.isFin()) {
+					if (header.isFin()) {
 						last = header.getSeq();
 					}
-					if(last+1 == data.size())
+					if (last == data.size())
 						break;
 				} catch (IOException e) {
 					e.printStackTrace();
@@ -131,20 +163,22 @@ public class Client {
 			}
 		}
 	}
-	
+
 	private class Decode extends Thread {
 		private DatagramPacket packet;
 		private Header h;
+
 		public Decode(DatagramPacket p, Header h) {
 			this.packet = p;
 			this.h = h;
 		}
+
 		public void run() {
 			byte[] packetData = packet.getData();
-			System.out.println("Received packet #"+h.getSeq());
-			byte[] newData = new byte[packetData.length-6];
-			for(int i = 0; i < newData.length; i++) {
-				newData[i] = packetData[i+6];
+			System.out.println("Received packet #" + h.getSeq());
+			byte[] newData = new byte[packetData.length - 8];
+			for (int i = 0; i < newData.length; i++) {
+				newData[i] = packetData[i + 8];
 			}
 			if (!data.containsKey(new Integer(h.getSeq()))) {
 				data.put(new Integer(h.getSeq()), newData);
@@ -152,13 +186,13 @@ public class Client {
 			Ack ack = new Ack(h.getSeq());
 			ack.start();
 			
-			if(last+1 == data.size()) {
+			if (last == data.size()) {
 				WriteFile wf = new WriteFile();
 				wf.start();
 			}
 		}
 	}
-	
+
 	private class WriteFile extends Thread {
 		public void run() {
 			System.out.println("Here");
@@ -171,21 +205,22 @@ public class Client {
 				e.printStackTrace();
 				return;
 			}
-			for(int i = 0; i < data.size(); i++) {
-				byte[] b = data.get(new Integer(i+1));
+			
+			for (int i = 0; i < data.size(); i++) {
+				byte[] b = data.get(new Integer(i + 1));
 				try {
 					fos.write(b, tracker, b.length);
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
-				tracker+=b.length;
+				tracker += b.length;
 			}
 			try {
 				fos.flush();
 			} catch (IOException e1) {
 				e1.printStackTrace();
 			}
-			if(fos!=null) {
+			if (fos != null) {
 				try {
 					fos.close();
 				} catch (IOException e) {
