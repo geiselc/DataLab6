@@ -311,15 +311,15 @@ public class Server {
 		}
 
 		public void run() {
-			byte[] sendData = new byte[data.length + 5];
+			byte[] sendData = new byte[data.length + 8];
 			Header h = new Header(false, false, last, true, index);
 			byte[] headData = h.setAndGetData();
 			for (int i = 0; i < h.SIZE; i++) {
 				sendData[i] = headData[i];
 			}
 
-			for (int i = 5; i < sendData.length; i++) {
-				sendData[i] = data[i - 5];
+			for (int i = 8; i < sendData.length; i++) {
+				sendData[i] = data[i - 8];
 			}
 
 			DatagramPacket sendPacket = new DatagramPacket(sendData,

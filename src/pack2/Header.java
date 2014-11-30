@@ -1,7 +1,7 @@
 package pack2;
 public class Header {
 
-	public final int SIZE = 5; // in bytes
+	public final int SIZE = 8; // in bytes
 	private byte[] data;				// header data
 	private boolean ack;
 	private boolean rst;
@@ -28,8 +28,23 @@ public class Header {
 			seqOff = 0;
 		} else {
 			seqOff = 1;
-			//seq-=1;
+			seq-=1;
 		}
+		if(seq==0) {
+			seq1=0;
+			seq2=0;
+			seq3=0;
+		} else {
+			if (seq <= 250) {
+				seq1 = seq;
+				seq2 = 1;
+				seq3 = 1;
+			} else {
+				
+			}
+		}
+		seq = seq1*seq2*seq3;
+		seq+=seqOff;
 		
 	}
 	
@@ -166,8 +181,17 @@ public class Header {
 					data[i] = (byte)0;
 				}
 				break;
+			case 4:
+				data[i] = (byte)seq1;
+				break;
+			case 5:
+				data[i] = (byte)seq2;
+				break;
+			case 6:
+				data[i] = (byte)seq3;
+				break;
 			default:
-				data[i] = (byte)seq;
+				data[i] = (byte)seqOff;
 				break;
 			}
 		}
@@ -190,10 +214,22 @@ public class Header {
 			case 3:
 				fileExists = one;
 				break;
+			case 4:
+				seq1 = (int)b;
+				break;
+			case 5:
+				seq2 = (int)b;
+				break;
+			case 6:
+				seq3 = (int)b;
+				break;
 			default:
-				seq = (int)b;
+				seqOff = (int)b;
 				break;
 			}
 		}
+		int x = seq1*seq2*seq3;
+		x+=seqOff;
+		seq = x;
 	}
 }
