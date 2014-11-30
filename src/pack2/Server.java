@@ -9,8 +9,6 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.file.Paths;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -54,18 +52,22 @@ public class Server {
 					+ InetAddress.getLocalHost());
 			this.portNumber = Integer.parseInt(port);
 			serverSocket = new DatagramSocket(portNumber);
-
+			s = null;
 			r = new Receive();
 			r.start();
 
-			while (true) {
-				if (r.isAlive()) {
-
-				} else {
-					serverSocket.close();
-					return;
+			while(r.isAlive()) {
+				
+			}
+			
+			if(s != null) {
+				while(s.isAlive()) {
+					
 				}
 			}
+			
+			serverSocket.close();
+			return;
 		} catch (NumberFormatException e) {
 			System.out.println("Invalid port entered!");
 			System.exit(1);
@@ -74,7 +76,7 @@ public class Server {
 			System.exit(1);
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
-		}
+		} 
 	}
 
 	private class Receive extends Thread {
@@ -86,11 +88,13 @@ public class Server {
 						s = new Send();
 						s.start();
 						gotAcksLoop();
+						return;
 					} else {
 						NoFilePacket nfp = new NoFilePacket();
 						nfp.start();
 						lastAckNumber = 0;
 						gotAcksLoop();
+						return;
 					}
 
 				} else {
@@ -107,8 +111,6 @@ public class Server {
 				System.out.println("File found at: " + filePath);
 				return true;
 			}
-
-			header.setFileExists(false);
 			return false;
 		}
 
@@ -156,7 +158,9 @@ public class Server {
 							int x = (int) receivePacket.getData()[i];
 							seqNum += x;
 						}
-						getAcks(seqNum);
+						if (getAcks(seqNum)) {
+							return;
+						}
 					} catch (Exception e) {
 						// timeout has occured
 						// so we do not ack their ack,
@@ -168,7 +172,7 @@ public class Server {
 		}
 		
 
-		public void getAcks(int seq) {
+		public boolean getAcks(int seq) {
 			System.out.println("Got Ack for packet number " + seq);
 			if (!gotAcks.contains(new Integer(seq))) {
 				gotAcks.add(new Integer(seq));
@@ -190,6 +194,9 @@ public class Server {
 			}
 			if (lastAck == lastAckNumber) {
 				lastAckReceived = true;
+				return true;
+			} else {
+				return false;
 			}
 		}
 	}
@@ -286,6 +293,7 @@ public class Server {
 				serverSocket.send(sendPacket);
 				System.out
 						.println("Sent packet to client informing on file not found");
+				outstanding.add(new Integer(0));
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
