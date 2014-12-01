@@ -175,7 +175,9 @@ public class Client {
 						System.out.println("Checksum Mismatch");
 					}
 				} catch (IOException e) {
-					e.printStackTrace();
+					//e.printStackTrace();
+					if(Client.written == true)
+						return;
 				}
 			}
 		}
@@ -259,7 +261,8 @@ public class Client {
 			for (int i = 0; i < data.size(); i++) {
 				byte[] b = data.get(new Integer(i + 1));
 				try {
-					fos.write(b, tracker, b.length);
+					//fos.write(b, tracker, b.length);
+					fos.write(b);
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
