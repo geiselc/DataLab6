@@ -63,10 +63,23 @@ public class Client {
 		}
 
 		private boolean sendFileName() {
-			byte[] sendData = fileName.getBytes();
+			/** CheckSum Code **/
+			Header h = new Header();
+			h.generateChecksum(fileName.getBytes());
+			byte[] sendData = new byte[fileName.length() + h.SIZE];
+			byte[] headData = h.setAndGetData();
+			for (int i = 0; i < h.SIZE; i++) {
+				sendData[i] = headData[i];
+			}
+
+			for (int i = h.SIZE; i < sendData.length; i++) {
+				sendData[i] = (byte) fileName.charAt(i - h.SIZE);
+			}
+			/** END CheckSum Code **/
+			
 			DatagramPacket sendPacket = new DatagramPacket(sendData,
 					sendData.length, serverIP, serverPort);
-			String cSum = computeCheckSum(sendPacket);
+			
 			try {
 				clientSocket.send(sendPacket);
 				System.out.println("Send packet to server asking for "
@@ -78,6 +91,11 @@ public class Client {
 			return true;
 		}
 
+		private String charAt(int i) {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
 		public void waiting() {
 			while (true) {
 				if (Client.written)
@@ -86,11 +104,6 @@ public class Client {
 					System.out.println("");
 			}
 			return;
-		}
-		
-		private String computeCheckSum(DatagramPacket packet){
-			// TODO Compute the Checksum
-			return "";
 		}
 	}
 
