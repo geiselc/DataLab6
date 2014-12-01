@@ -66,6 +66,7 @@ public class Client {
 			byte[] sendData = fileName.getBytes();
 			DatagramPacket sendPacket = new DatagramPacket(sendData,
 					sendData.length, serverIP, serverPort);
+			String cSum = computeCheckSum(sendPacket);
 			try {
 				clientSocket.send(sendPacket);
 				System.out.println("Send packet to server asking for "
@@ -85,6 +86,11 @@ public class Client {
 					System.out.println("");
 			}
 			return;
+		}
+		
+		private String computeCheckSum(DatagramPacket packet){
+			// TODO Compute the Checksum
+			return "";
 		}
 	}
 
@@ -114,6 +120,7 @@ public class Client {
 
 			DatagramPacket sendPacket = new DatagramPacket(sendData,
 					sendData.length, serverIP, serverPort);
+			String cSum = computeCheckSum(sendPacket);
 			try {
 				clientSocket.send(sendPacket);
 				System.out
@@ -122,6 +129,11 @@ public class Client {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
+		}
+		
+		private String computeCheckSum(DatagramPacket packet){
+			//TODO Compute Checksum
+			return "";
 		}
 	}
 
@@ -133,14 +145,16 @@ public class Client {
 						receiveData.length);
 				try {
 					clientSocket.receive(receivePacket);
-					if (noError(receivePacket.getData())) {
+					
+					receivePacket.getData();
 
-						byte[] headerData = new byte[10];
-						for (int i = 0; i < headerData.length; i++) {
-							headerData[i] = receivePacket.getData()[i];
-						}
-						header = new Header(headerData);
-
+					byte[] headerData = new byte[10];
+					for (int i = 0; i < headerData.length; i++) {
+						headerData[i] = receivePacket.getData()[i];
+					}
+					header = new Header(headerData);
+					String cSum = header.getCheckSum();
+					if(verifyCheckSum(cSum, receivePacket)){	
 						if (!header.fileExists()) {
 							System.out.println("Received packet from server");
 							System.out.println("File: " + fileName
@@ -181,48 +195,10 @@ public class Client {
 				}
 			}
 		}
-
-		private boolean noError(byte[] input) {
-			String check1 = byteToBitString(input[0])
-					+ byteToBitString(input[1]);
-			byte[] i2 = new byte[input.length - 2];
-			for (int i = 0; i < i2.length; i++) {
-				i2[i] = input[i + 2];
-			}
-			String check2 = getCheckSum(i2);
-			return trimAndCheck(check1, check2);
-		}
-
-		private boolean trimAndCheck(String one, String two) {
-			int index = one.indexOf("1");
-			one = one.substring(index);
-
-			index = two.indexOf("1");
-			two = two.substring(index);
-
-			return one.equals(two);
-		}
-
-		private String byteToBitString(byte b) {
-			return ("0000000" + Integer.toBinaryString(0xFF & b)).replaceAll(
-					".*(.{8})$", "$1");
-		}
-
-		public String getCheckSum(byte[] input) {
-			byte[] buf = input;
-			int length = buf.length;
-			int i = 0;
-			long sum = 0;
-			while (length > 0) {
-				sum += (buf[i++] & 0xff) << 8;
-				if ((--length) == 0)
-					break;
-				sum += (buf[i++] & 0xff);
-				--length;
-			}
-
-			long x = (~((sum & 0xFFFF) + (sum >> 16))) & 0xFFFF;
-			return Long.toBinaryString(x);
+	
+		private boolean verifyCheckSum(String checkSum, DatagramPacket packet){
+			// TODO Verify checksum in header with expected checksum 
+			return false;
 		}
 	}
 
