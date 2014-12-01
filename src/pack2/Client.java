@@ -59,24 +59,24 @@ public class Client {
 				r = new Receive();
 				r.start();
 				waiting();
-			}
+				}
 		}
 
 		private boolean sendFileName() {
-			/** CheckSum Code **/
+
 			Header h = new Header();
 			h.generateChecksum(fileName.getBytes());
-			byte[] sendData = new byte[fileName.length() + h.SIZE];
-			byte[] headData = h.setAndGetData();
-			for (int i = 0; i < h.SIZE; i++) {
-				sendData[i] = headData[i];
-			}
-
 			byte[] fileBytes = fileName.getBytes();
-			for (int i = h.SIZE; i < sendData.length; i++) {
-				sendData[i] =  fileBytes[i - h.SIZE];
+			byte[] sendData = new byte[2 + fileBytes.length];
+			String cSum = Header.genCheckSumStatic(fileBytes);
+			String str1 = cSum.substring(0, 7);
+			sendData[0] = (byte) Integer.parseInt(str1, 2);
+			String str2 = cSum.substring(8);
+			sendData[1] = (byte) Integer.parseInt(str2, 2);
+			
+			for(int i = 2; i < fileBytes.length; i++){
+				sendData[i] = fileBytes[i-2];
 			}
-			/** END CheckSum Code **/
 			
 			DatagramPacket sendPacket = new DatagramPacket(sendData,
 					sendData.length, serverIP, serverPort);
@@ -90,11 +90,6 @@ public class Client {
 				return false;
 			}
 			return true;
-		}
-
-		private String charAt(int i) {
-			// TODO Auto-generated method stub
-			return null;
 		}
 
 		public void waiting() {
@@ -116,25 +111,22 @@ public class Client {
 		}
 
 		public void run() {
-			String str = num + "";
-			// byte[] sendData = str.getBytes();
-
-			int i = 0;
-			while (num > 250) {
-				i++;
-				num -= 250;
-			}
-
-			byte[] sendData = new byte[i + 1];
-			for (int j = 0; j <= i; j++) {
-				sendData[i] = (byte) 250;
-				if (i == 0)
-					sendData[i] = (byte) num;
-			}
-
+			byte[] ackData = new byte[1];
+			ackData[0] = (byte) num;
+			
+			String cSum = Header.genCheckSumStatic(ackData);
+			
+			byte[] sendData = new byte[3];
+			sendData[2] = (byte) num;
+			
+			String str1 = cSum.substring(0, 7);
+			sendData[0] = (byte) Integer.parseInt(str1, 2);
+			String str2 = cSum.substring(8);
+			sendData[1] = (byte) Integer.parseInt(str2, 2);
+			
+			
 			DatagramPacket sendPacket = new DatagramPacket(sendData,
 					sendData.length, serverIP, serverPort);
-			String cSum = computeCheckSum(sendPacket);
 			try {
 				clientSocket.send(sendPacket);
 				System.out
@@ -143,11 +135,6 @@ public class Client {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-		}
-		
-		private String computeCheckSum(DatagramPacket packet){
-			//TODO Compute Checksum
-			return "";
 		}
 	}
 
@@ -159,16 +146,9 @@ public class Client {
 						receiveData.length);
 				try {
 					clientSocket.receive(receivePacket);
+					Header h = new Header();
 					
-					receivePacket.getData();
-
-					byte[] headerData = new byte[10];
-					for (int i = 0; i < headerData.length; i++) {
-						headerData[i] = receivePacket.getData()[i];
-					}
-					header = new Header(headerData);
-					String cSum = header.getCheckSum();
-					if(verifyCheckSum(cSum, receivePacket)){	
+					if(noError(receivePacket.getData(), h)){
 						if (!header.fileExists()) {
 							System.out.println("Received packet from server");
 							System.out.println("File: " + fileName
@@ -198,21 +178,45 @@ public class Client {
 							break;
 						}
 					} else {
-						System.out.println("Checksum mismatch...");
-						/**
-						 * TODO
-						 * Do we need to send this back to the server, or will looping through again work?
-						 */
+						System.out.println("Checksum Mismatch");
 					}
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
 			}
 		}
-	
-		private boolean verifyCheckSum(String checkSum, DatagramPacket packet){
-			// TODO Verify checksum in header with expected checksum 
+		
+		private boolean noError(byte[] input, Header h){
+			byte[] nonHead = new byte[1024 - h.SIZE];
+			for(int i = 0; i < nonHead.length; i++){
+				nonHead[i] = input[i + h.SIZE];
+			}
+			
+			byte[] headData = new byte[h.SIZE];
+			for(int i = 0; i < headData.length; i++){
+				headData[i] = input[i];
+			}
+			
+			h = new Header(headData);
+			String cSum = h.getCheckSum();
+			h.generateChecksum(nonHead);
+			String cSum2 = h.getCheckSum();
+			
+			
+			if(trimAndCheck(cSum, cSum2))
+				return true;
+			
 			return false;
+		}
+		
+		private boolean trimAndCheck(String one, String two) {
+			int index = one.indexOf("1");
+			one = one.substring(index);
+			
+			index = two.indexOf("1");
+			two = two.substring(index);
+			
+			return one.equals(two);
 		}
 	}
 
