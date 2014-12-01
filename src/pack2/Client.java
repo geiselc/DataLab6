@@ -39,10 +39,8 @@ public class Client {
 			s = new Send();
 			s.start();
 			while (s.isAlive()) {
-				System.out.println(Thread.activeCount());
 			}
 			clientSocket.close();
-			// System.exit(0);
 			return;
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -62,19 +60,18 @@ public class Client {
 				}
 		}
 
-		private boolean sendFileName() {
-
-			Header h = new Header();
-			h.generateChecksum(fileName.getBytes());
+		private boolean sendFileName() {			
 			byte[] fileBytes = fileName.getBytes();
+			
 			byte[] sendData = new byte[2 + fileBytes.length];
 			String cSum = Header.genCheckSumStatic(fileBytes);
-			String str1 = cSum.substring(0, 7);
+			String str1 = cSum.substring(0, 8);
+
 			sendData[0] = (byte) Integer.parseInt(str1, 2);
 			String str2 = cSum.substring(8);
-			sendData[1] = (byte) Integer.parseInt(str2, 2);
 			
-			for(int i = 2; i < fileBytes.length; i++){
+			sendData[1] = (byte) Integer.parseInt(str2, 2);
+			for(int i = 2; i < sendData.length; i++){
 				sendData[i] = fileBytes[i-2];
 			}
 			
@@ -97,7 +94,7 @@ public class Client {
 				if (Client.written)
 					break;
 				else
-					System.out.println("");
+					System.out.print("");
 			}
 			return;
 		}
@@ -119,7 +116,7 @@ public class Client {
 			byte[] sendData = new byte[3];
 			sendData[2] = (byte) num;
 			
-			String str1 = cSum.substring(0, 7);
+			String str1 = cSum.substring(0, 8);
 			sendData[0] = (byte) Integer.parseInt(str1, 2);
 			String str2 = cSum.substring(8);
 			sendData[1] = (byte) Integer.parseInt(str2, 2);
@@ -149,7 +146,8 @@ public class Client {
 					Header h = new Header();
 					
 					if(noError(receivePacket.getData(), h)){
-						if (!header.fileExists()) {
+						h = new Header(receivePacket.getData());
+						if (!h.fileExists()) {
 							System.out.println("Received packet from server");
 							System.out.println("File: " + fileName
 									+ " not found.");
@@ -162,19 +160,15 @@ public class Client {
 							System.exit(0);
 						}
 
-						Decode d = new Decode(receivePacket, header);
+						Decode d = new Decode(receivePacket, h);
 						d.start();
 
 						// Check to see if still data to receive from server
-						if (header.isFin()) {
-							last = header.getSeq();
+						if (h.isFin()) {
+							last = h.getSeq();
 						}
-						// System.out.println(last);
-						// System.out.println(data.size());
-						// System.out.println(header.getSeq());
-						// System.out.println(header.isFin());
-						if (last == data.size() + 1) {
-							System.out.println("Breaking");
+					
+						if (last == data.size()) {
 							break;
 						}
 					} else {
@@ -232,9 +226,9 @@ public class Client {
 		public void run() {
 			byte[] packetData = packet.getData();
 			System.out.println("Received packet #" + h.getSeq());
-			byte[] newData = new byte[packetData.length - 10];
+			byte[] newData = new byte[packetData.length - h.SIZE];
 			for (int i = 0; i < newData.length; i++) {
-				newData[i] = packetData[i + 10];
+				newData[i] = packetData[i + h.SIZE];
 			}
 			if (!data.containsKey(new Integer(h.getSeq()))) {
 				data.put(new Integer(h.getSeq()), newData);
@@ -251,7 +245,7 @@ public class Client {
 
 	private class WriteFile extends Thread {
 		public void run() {
-			System.out.println("Here");
+			//System.out.println("Writing ... ");
 			File file = new File(fileName);
 			FileOutputStream fos = null;
 			int tracker = 0;
