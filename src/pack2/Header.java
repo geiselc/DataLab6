@@ -2,16 +2,12 @@ package pack2;
 
 public class Header {
 
-	public final int SIZE = 10; // in bytes
+	public final int SIZE = 7; // in bytes
 	private byte[] data; // header data
 	private boolean ack;
 	private boolean rst;
 	private boolean fin;
 	private boolean fileExists;
-	private int seq1;
-	private int seq2;
-	private int seq3;
-	private int seqOff;
 	private int seq;
 	private String checkSum;
 
@@ -19,13 +15,6 @@ public class Header {
 		data = new byte[SIZE];
 	}
 
-	private boolean isPrime(int n) {
-		for (int i = 2; i < n; i++) {
-			if (n % i == 0)
-				return false;
-		}
-		return true;
-	}
 
 	public Header(boolean ack, boolean rst, boolean fin, boolean fileExists,
 			int seq) {
@@ -35,45 +24,6 @@ public class Header {
 		this.fileExists = fileExists;
 		this.seq = seq;
 		this.data = new byte[SIZE];
-		if (seq % 2 == 0) {
-			seqOff = 0;
-		} else {
-			seqOff = 1;
-			seq -= 1;
-		}
-		seq1 = 0;
-		seq2 = 0;
-		seq3 = 0;
-		if (seq == 0) {
-			// do nothing
-		} else {
-			if (seq <= 250) {
-				seq1 = seq;
-				seq2 = 1;
-				seq3 = 1;
-			} else {
-				int sequence = seq;/*
-									 * This is your starting even number that is
-									 * greater than 250
-									 */
-				int sequence2 = 0;
-
-				while (sequence2 == 0 || isPrime(sequence2)) {
-					seq1 = (int) (Math.random() * 15) + 2;
-					while (sequence % seq1 != 0) {
-						seq1 = (int) (Math.random() * 15) + 2;
-					}
-					sequence2 = sequence / seq1;
-				}
-				seq2 = (int) (Math.random() * 15) + 2;
-				while (sequence2 % seq2 != 0) {
-					seq2 = (int) (Math.random() * 15) + 2;
-				}
-				seq3 = sequence2 / seq2;
-			}
-		}
-		seq = seq1 * seq2 * seq3;
-		seq += seqOff;
 	}
 
 	public Header(byte[] bytes) {
@@ -119,38 +69,6 @@ public class Header {
 
 	public void setSeq(int seq) {
 		this.seq = seq;
-	}
-
-	public int getSeq1() {
-		return seq1;
-	}
-
-	public void setSeq1(int seq1) {
-		this.seq1 = seq1;
-	}
-
-	public int getSeq2() {
-		return seq2;
-	}
-
-	public void setSeq2(int seq2) {
-		this.seq2 = seq2;
-	}
-
-	public int getSeq3() {
-		return seq3;
-	}
-
-	public void setSeq3(int seq3) {
-		this.seq3 = seq3;
-	}
-
-	public int getSeqOff() {
-		return seqOff;
-	}
-
-	public void setSeqOff(int seqOff) {
-		this.seqOff = seqOff;
 	}
 
 	public boolean isFileExists() {
@@ -206,22 +124,13 @@ public class Header {
 				}
 				break;
 			case 4:
-				data[i] = (byte) seq1;
+				data[i] = (byte) seq;
 				break;
 			case 5:
-				data[i] = (byte) seq2;
-				break;
-			case 6:
-				data[i] = (byte) seq3;
-				break;
-			case 7:
-				data[i] = (byte) seqOff;
-				break;
-			case 8:
 				String str1 = this.checkSum.substring(0, 7);
 				data[i] = (byte) Integer.parseInt(str1, 2);
 				break;
-			case 9:
+			case 6:
 				String str2 = this.checkSum.substring(8);
 				data[i] = (byte) Integer.parseInt(str2, 2);
 				break;
@@ -248,30 +157,18 @@ public class Header {
 				fileExists = one;
 				break;
 			case 4:
-				seq1 = (int) b;
+				seq = (int) b;
 				break;
 			case 5:
-				seq2 = (int) b;
-				break;
-			case 6:
-				seq3 = (int) b;
-				break;
-			case 7:
-				seqOff = (int) b;
-				break;
-			case 8:
 				String str1 = byteToBitString(b);
 				this.checkSum = str1;
 				break;
-			case 9:
+			case 6:
 				String str2 = byteToBitString(b);
 				this.checkSum =  this.checkSum + str2;
 				break;
 			}
 		}
-		int x = seq1 * seq2 * seq3;
-		x += seqOff;
-		seq = x;
 	}
 	
 	private String byteToBitString(byte b) {
@@ -320,16 +217,7 @@ public class Header {
 				}
 				break;
 			case 4:
-				i2[i] = (byte) seq1;
-				break;
-			case 5:
-				i2[i] = (byte) seq2;
-				break;
-			case 6:
-				i2[i] = (byte) seq3;
-				break;
-			case 7:
-				i2[i] = (byte) seqOff;
+				i2[i] = (byte) seq;
 				break;
 			}
 		}
