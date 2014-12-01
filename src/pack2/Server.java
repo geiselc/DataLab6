@@ -168,6 +168,7 @@ public class Server {
 		public void gotAcksLoop() {
 
 			while (!lastAckReceived) {
+				updateLastAck();
 				if (outstanding.size() > 0) {
 					byte[] receiveData = new byte[1024];
 					DatagramPacket receivePacket = new DatagramPacket(
@@ -256,7 +257,7 @@ public class Server {
 			if (seq == lastAck + 1) {
 				lastAck++;
 				Collections.sort(gotAcks);
-				for (int i = seq + 1; i < gotAcks.size(); i++) {
+				for (int i = seq + 1; i <= gotAcks.size(); i++) {
 					if (gotAcks.get(i) == lastAck + 1) {
 						lastAck++;
 					} else {
@@ -269,6 +270,14 @@ public class Server {
 				return true;
 			} else {
 				return false;
+			}
+		}
+		
+		private void updateLastAck() {
+			for(int i = lastAck+1; i <= gotAcks.size(); i++) {
+				if(gotAcks.contains(new Integer(i))) {
+					lastAck = i;
+				}
 			}
 		}
 	}
@@ -312,14 +321,19 @@ public class Server {
 						if (outstanding.contains(new Integer(number))) {
 							number++;
 						} else if (gotAcks.contains(new Integer(number))){
+							//System.out.println("error 2 " + number +" "+lastAck);
 							number++;
 						} else if (lastAck + 5 < number) {
-							number = lastAck + 1;
+							//System.out.println("error 3 " + number +" "+lastAck);
+							number = lastAck+1;
 						} else if (!canSend()) {
+							//System.out.println("Cant Send");
 							continue;
 						} else if (!r.isAlive()) {
+							//System.out.println("r is dead");
 							return;
 						} else {
+							//System.out.println("sending");
 							break;
 						}
 					}
