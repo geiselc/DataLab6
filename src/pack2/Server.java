@@ -173,6 +173,10 @@ public class Server {
 							 * we have no way of knowing what packet they
 							 * got, so we will have to send them all again?
 							 */
+							/*
+							 * also have the case of an error occuring when
+							 * we are sending a no file packet
+							 */
 							while(outstanding.size() > 0) {
 								outstanding.remove(0);
 							}
