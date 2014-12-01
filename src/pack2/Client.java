@@ -19,7 +19,7 @@ public class Client {
 	private Receive r;
 	private HashMap<Integer, byte[]> data;
 	private Header header;
-	private boolean written;
+	private static boolean written;
 	private int last;
 
 	public static void main(String[] args) {
@@ -39,10 +39,10 @@ public class Client {
 			s = new Send();
 			s.start();
 			while (s.isAlive()) {
-
+				System.out.println(Thread.activeCount());
 			}
 			clientSocket.close();
-			System.exit(0);
+			//System.exit(0);
 			return;
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -78,8 +78,11 @@ public class Client {
 		}
 
 		public void waiting() {
-			while (!written) {
-
+			while (true) {
+				if(Client.written)
+					break;
+				else
+					System.out.println("");
 			}
 			return;
 		}
@@ -155,8 +158,14 @@ public class Client {
 					if (header.isFin()) {
 						last = header.getSeq();
 					}
-					if (last == data.size())
+//					System.out.println(last);
+//					System.out.println(data.size());
+//					System.out.println(header.getSeq());
+//					System.out.println(header.isFin());
+					if (last == data.size()+1){
+						System.out.println("Breaking");
 						break;
+					}
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -227,7 +236,7 @@ public class Client {
 					e.printStackTrace();
 				}
 			}
-			written = true;
+			Client.written = true;
 		}
 	}
 }
