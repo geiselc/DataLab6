@@ -2,8 +2,8 @@ package pack2;
 
 public class Header {
 
-	public final int SIZE = 7; // in bytes
-	private byte[] data; // header data
+	public final int SIZE = 7;
+	private byte[] data;
 	private boolean ack;
 	private boolean rst;
 	private boolean fin;

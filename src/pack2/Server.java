@@ -57,6 +57,7 @@ public class Server {
 					+ InetAddress.getLocalHost());
 			this.portNumber = Integer.parseInt(port);
 			serverSocket = new DatagramSocket(portNumber);
+			serverSocket.setSoTimeout(3000);
 			s = null;
 			nf = null;
 			r = new Receive();
