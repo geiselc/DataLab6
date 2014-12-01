@@ -127,7 +127,7 @@ public class Header {
 				data[i] = (byte) seq;
 				break;
 			case 5:
-				String str1 = this.checkSum.substring(0, 7);
+				String str1 = this.checkSum.substring(0, 8);
 				data[i] = (byte) Integer.parseInt(str1, 2);
 				break;
 			case 6:

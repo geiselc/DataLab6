@@ -140,8 +140,8 @@ public class Server {
 			try {
 				serverSocket.receive(receivePacket);
 			} catch (IOException e) {
-				e.printStackTrace();
-				return false;
+				System.out.println("No packet received yet");
+				continue;
 			}
 			
 			if(noError(receivePacket.getData())) {
@@ -150,8 +150,8 @@ public class Server {
 				clientIP = receivePacket.getAddress();
 
 				// get file name
-				fileName = new String(receivePacket.getData(), 0,
-						receivePacket.getLength());
+				fileName = new String(receivePacket.getData(), 2,
+						receivePacket.getLength()).trim();
 
 				lastAck++;
 				System.out.println("Received packet from " + clientIP + ":"
@@ -186,6 +186,7 @@ public class Server {
 								return;
 							}
 						} else {
+							System.out.println("Ack packet received, but bad checksum");
 							while(outstanding.size() > 0) {
 								outstanding.remove(0);
 							}
@@ -206,14 +207,26 @@ public class Server {
 			}
 		}
 
-		private boolean noError(byte[] input) {
+		private boolean noError(byte[] input){
 			String check1 = byteToBitString(input[0])
 					+ byteToBitString(input[1]);
+			
 			byte[] i2 = new byte[input.length - 2];
+			byte[] i3 = null;
 			for (int i = 0; i < i2.length; i++) {
-				i2[i] = input[i + 2];
+				byte b = input[i + 2];
+				i2[i] = b;
+				if (b != 0) {
+					i2[i] = b;
+				} else {
+					i3 = new byte[i];
+					for(int j = 0; j < i3.length; j++) {
+						i3[j] = i2[j];
+					}
+					break;
+				}
 			}
-			String check2 = Header.genCheckSumStatic(i2);
+			String check2 = Header.genCheckSumStatic(i3);
 			return trimAndCheck(check1, check2);
 		}
 		
@@ -223,7 +236,6 @@ public class Server {
 			
 			index = two.indexOf("1");
 			two = two.substring(index);
-			
 			return one.equals(two);
 		}
 
@@ -299,6 +311,14 @@ public class Server {
 					while (true) {
 						if (outstanding.contains(new Integer(number))) {
 							number++;
+						} else if (gotAcks.contains(new Integer(number))){
+							number++;
+						} else if (lastAck + 5 < number) {
+							number = lastAck + 1;
+						} else if (!canSend()) {
+							continue;
+						} else if (!r.isAlive()) {
+							return;
 						} else {
 							break;
 						}
