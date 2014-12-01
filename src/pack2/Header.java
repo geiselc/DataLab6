@@ -251,4 +251,26 @@ public class Header {
 		}
 		return str;
 	}
+	
+
+	public static String genCheckSumStatic(byte[] input) {
+		byte[] buf = input;
+		int length = buf.length;
+		int i = 0;
+		long sum = 0;
+		while (length > 0) {
+			sum += (buf[i++] & 0xff) << 8;
+			if ((--length) == 0)
+				break;
+			sum += (buf[i++] & 0xff);
+			--length;
+		}
+
+		long x = (~((sum & 0xFFFF) + (sum >> 16))) & 0xFFFF;
+		String str = Long.toBinaryString(x);
+		while(str.length() < 16) {
+			str = "0"+str;
+		}
+		return str;
+	}
 }
