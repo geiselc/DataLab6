@@ -175,6 +175,10 @@ public class Header {
 		return ("0000000" + Integer.toBinaryString(0xFF & b)).replaceAll(
 				".*(.{8})$", "$1");
 	}
+	public static String byteToBitStringStatic(byte b) {
+		return ("0000000" + Integer.toBinaryString(0xFF & b)).replaceAll(
+				".*(.{8})$", "$1");
+	}
 
 	public String getCheckSum() {
 		return checkSum;

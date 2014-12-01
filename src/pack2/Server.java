@@ -32,6 +32,7 @@ public class Server {
 	private int lastAckNumber;
 	private HashMap<Integer, byte[]> map;
 	private boolean cSend;
+	private NoFilePacketSend nf;
 	// TODO
 	/*
 	 * we also have to worry about timeouts.
@@ -57,6 +58,7 @@ public class Server {
 			this.portNumber = Integer.parseInt(port);
 			serverSocket = new DatagramSocket(portNumber);
 			s = null;
+			nf = null;
 			r = new Receive();
 			r.start();
 
@@ -66,6 +68,12 @@ public class Server {
 
 			if (s != null) {
 				while (s.isAlive()) {
+
+				}
+			}
+			
+			if (nf != null) {
+				while (nf.isAlive()) {
 
 				}
 			}
@@ -94,9 +102,9 @@ public class Server {
 						gotAcksLoop();
 						return;
 					} else {
-						NoFilePacket nfp = new NoFilePacket();
-						nfp.start();
+						nf = new NoFilePacketSend();
 						lastAckNumber = 0;
+						nf.start();
 						gotAcksLoop();
 						return;
 					}
@@ -119,6 +127,9 @@ public class Server {
 		}
 
 		private boolean getFirstConnection() {
+			
+			while(true) {
+				
 			// set up packet
 			byte[] receiveData = new byte[1024];
 			DatagramPacket receivePacket = new DatagramPacket(receiveData,
@@ -131,18 +142,25 @@ public class Server {
 				e.printStackTrace();
 				return false;
 			}
+			
+			if(noError(receivePacket.getData())) {
+				// get clientPort and clientIP
+				clientPort = receivePacket.getPort();
+				clientIP = receivePacket.getAddress();
 
-			// get clientPort and clientIP
-			clientPort = receivePacket.getPort();
-			clientIP = receivePacket.getAddress();
+				// get file name
+				fileName = new String(receivePacket.getData(), 0,
+						receivePacket.getLength());
 
-			// get file name
-			fileName = new String(receivePacket.getData(), 0,
-					receivePacket.getLength());
-
-			lastAck++;
-			System.out.println("Received packet from " + clientIP + ":"
-					+ clientPort + " asking for " + fileName);
+				lastAck++;
+				System.out.println("Received packet from " + clientIP + ":"
+						+ clientPort + " asking for " + fileName);
+				break;
+			} else {
+				System.out.println("Received corrupted packet from client");
+			}
+			
+			}
 			return true;
 		}
 
@@ -167,16 +185,6 @@ public class Server {
 								return;
 							}
 						} else {
-							// TODO
-							/*
-							 * what to do when the checksum was wrong?
-							 * we have no way of knowing what packet they
-							 * got, so we will have to send them all again?
-							 */
-							/*
-							 * also have the case of an error occuring when
-							 * we are sending a no file packet
-							 */
 							while(outstanding.size() > 0) {
 								outstanding.remove(0);
 							}
@@ -204,7 +212,7 @@ public class Server {
 			for (int i = 0; i < i2.length; i++) {
 				i2[i] = input[i + 2];
 			}
-			String check2 = getCheckSum(i2);
+			String check2 = Header.genCheckSumStatic(i2);
 			return trimAndCheck(check1, check2);
 		}
 		
@@ -221,23 +229,6 @@ public class Server {
 		private String byteToBitString(byte b) {
 			return ("0000000" + Integer.toBinaryString(0xFF & b)).replaceAll(
 					".*(.{8})$", "$1");
-		}
-
-		public String getCheckSum(byte[] input) {
-			byte[] buf = input;
-			int length = buf.length;
-			int i = 0;
-			long sum = 0;
-			while (length > 0) {
-				sum += (buf[i++] & 0xff) << 8;
-				if ((--length) == 0)
-					break;
-				sum += (buf[i++] & 0xff);
-				--length;
-			}
-
-			long x = (~((sum & 0xFFFF) + (sum >> 16))) & 0xFFFF;
-			return Long.toBinaryString(x);
 		}
 
 		public boolean getAcks(int seq) {
@@ -345,6 +336,18 @@ public class Server {
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
+				}
+			}
+		}
+	}
+	
+	private class NoFilePacketSend extends Thread {
+		public void run() {
+			while(r.isAlive()) {
+				if(cSend) {
+					cSend = false;
+					NoFilePacket nfp = new NoFilePacket();
+					nfp.start();
 				}
 			}
 		}
