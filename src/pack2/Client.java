@@ -72,8 +72,9 @@ public class Client {
 				sendData[i] = headData[i];
 			}
 
+			byte[] fileBytes = fileName.getBytes();
 			for (int i = h.SIZE; i < sendData.length; i++) {
-				sendData[i] = (byte) fileName.charAt(i - h.SIZE);
+				sendData[i] =  fileBytes[i - h.SIZE];
 			}
 			/** END CheckSum Code **/
 			
