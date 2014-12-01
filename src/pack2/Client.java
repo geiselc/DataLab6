@@ -42,7 +42,7 @@ public class Client {
 				System.out.println(Thread.activeCount());
 			}
 			clientSocket.close();
-			//System.exit(0);
+			// System.exit(0);
 			return;
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -79,7 +79,7 @@ public class Client {
 
 		public void waiting() {
 			while (true) {
-				if(Client.written)
+				if (Client.written)
 					break;
 				else
 					System.out.println("");
@@ -111,7 +111,7 @@ public class Client {
 				if (i == 0)
 					sendData[i] = (byte) num;
 			}
-			
+
 			DatagramPacket sendPacket = new DatagramPacket(sendData,
 					sendData.length, serverIP, serverPort);
 			try {
@@ -133,43 +133,96 @@ public class Client {
 						receiveData.length);
 				try {
 					clientSocket.receive(receivePacket);
-					byte[] headerData = new byte[8];
-					for (int i = 0; i < headerData.length; i++) {
-						headerData[i] = receivePacket.getData()[i];
-					}
-					header = new Header(headerData);
+					if (noError(receivePacket.getData())) {
 
-					if (!header.fileExists()) {
-						System.out.println("Received packet from server");
-						System.out.println("File: " + fileName + " not found.");
-						Ack a = new Ack(0);
-						a.start();
-						while(a.isAlive()){
-							
+						byte[] headerData = new byte[10];
+						for (int i = 0; i < headerData.length; i++) {
+							headerData[i] = receivePacket.getData()[i];
 						}
-						clientSocket.close();
-						System.exit(0);
-					}
+						header = new Header(headerData);
 
-					Decode d = new Decode(receivePacket, header);
-					d.start();
+						if (!header.fileExists()) {
+							System.out.println("Received packet from server");
+							System.out.println("File: " + fileName
+									+ " not found.");
+							Ack a = new Ack(0);
+							a.start();
+							while (a.isAlive()) {
 
-					// Check to see if still data to receive from server
-					if (header.isFin()) {
-						last = header.getSeq();
-					}
-//					System.out.println(last);
-//					System.out.println(data.size());
-//					System.out.println(header.getSeq());
-//					System.out.println(header.isFin());
-					if (last == data.size()+1){
-						System.out.println("Breaking");
-						break;
+							}
+							clientSocket.close();
+							System.exit(0);
+						}
+
+						Decode d = new Decode(receivePacket, header);
+						d.start();
+
+						// Check to see if still data to receive from server
+						if (header.isFin()) {
+							last = header.getSeq();
+						}
+						// System.out.println(last);
+						// System.out.println(data.size());
+						// System.out.println(header.getSeq());
+						// System.out.println(header.isFin());
+						if (last == data.size() + 1) {
+							System.out.println("Breaking");
+							break;
+						}
+					} else {
+						System.out.println("Checksum mismatch...");
+						/**
+						 * TODO
+						 * Do we need to send this back to the server, or will looping through again work?
+						 */
 					}
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
 			}
+		}
+
+		private boolean noError(byte[] input) {
+			String check1 = byteToBitString(input[0])
+					+ byteToBitString(input[1]);
+			byte[] i2 = new byte[input.length - 2];
+			for (int i = 0; i < i2.length; i++) {
+				i2[i] = input[i + 2];
+			}
+			String check2 = getCheckSum(i2);
+			return trimAndCheck(check1, check2);
+		}
+
+		private boolean trimAndCheck(String one, String two) {
+			int index = one.indexOf("1");
+			one = one.substring(index);
+
+			index = two.indexOf("1");
+			two = two.substring(index);
+
+			return one.equals(two);
+		}
+
+		private String byteToBitString(byte b) {
+			return ("0000000" + Integer.toBinaryString(0xFF & b)).replaceAll(
+					".*(.{8})$", "$1");
+		}
+
+		public String getCheckSum(byte[] input) {
+			byte[] buf = input;
+			int length = buf.length;
+			int i = 0;
+			long sum = 0;
+			while (length > 0) {
+				sum += (buf[i++] & 0xff) << 8;
+				if ((--length) == 0)
+					break;
+				sum += (buf[i++] & 0xff);
+				--length;
+			}
+
+			long x = (~((sum & 0xFFFF) + (sum >> 16))) & 0xFFFF;
+			return Long.toBinaryString(x);
 		}
 	}
 
@@ -185,16 +238,16 @@ public class Client {
 		public void run() {
 			byte[] packetData = packet.getData();
 			System.out.println("Received packet #" + h.getSeq());
-			byte[] newData = new byte[packetData.length - 8];
+			byte[] newData = new byte[packetData.length - 10];
 			for (int i = 0; i < newData.length; i++) {
-				newData[i] = packetData[i + 8];
+				newData[i] = packetData[i + 10];
 			}
 			if (!data.containsKey(new Integer(h.getSeq()))) {
 				data.put(new Integer(h.getSeq()), newData);
 			}
 			Ack ack = new Ack(h.getSeq());
 			ack.start();
-			
+
 			if (last == data.size()) {
 				WriteFile wf = new WriteFile();
 				wf.start();
@@ -214,7 +267,7 @@ public class Client {
 				e.printStackTrace();
 				return;
 			}
-			
+
 			for (int i = 0; i < data.size(); i++) {
 				byte[] b = data.get(new Integer(i + 1));
 				try {
