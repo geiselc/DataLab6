@@ -32,7 +32,12 @@ public class Server {
 	private int lastAckNumber;
 	private HashMap<Integer, byte[]> map;
 	private boolean cSend;
-
+	// TODO
+	/*
+	 * we also have to worry about timeouts.
+	 * right now it is just removing what it can from the outstanding list
+	 * and trying again.
+	 */
 	public static void main(String[] args) {
 		new Server(args[0]);
 	}
@@ -55,13 +60,13 @@ public class Server {
 			r = new Receive();
 			r.start();
 
-			while(r.isAlive()) {
-				
+			while (r.isAlive()) {
+
 			}
-			
-			if(s != null) {
-				while(s.isAlive()) {
-					
+
+			if (s != null) {
+				while (s.isAlive()) {
+
 				}
 			}
 			System.out.println("All acks received, server closing");
@@ -75,7 +80,7 @@ public class Server {
 			System.exit(1);
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
-		} 
+		}
 	}
 
 	private class Receive extends Thread {
@@ -153,23 +158,83 @@ public class Server {
 					try {
 						serverSocket.receive(receivePacket);
 						int seqNum = 0;
-						for (int i = 0; i < receivePacket.getData().length; i++) {
+						for (int i = 2; i < receivePacket.getData().length; i++) {
 							int x = (int) receivePacket.getData()[i];
 							seqNum += x;
 						}
-						if (getAcks(seqNum)) {
-							return;
+						if (noError(receivePacket.getData())) {
+							if (getAcks(seqNum)) {
+								return;
+							}
+						} else {
+							// TODO
+							/*
+							 * what to do when the checksum was wrong?
+							 * we have no way of knowing what packet they
+							 * got, so we will have to send them all again?
+							 */
+							while(outstanding.size() > 0) {
+								outstanding.remove(0);
+							}
+							cSend = true;
 						}
 					} catch (Exception e) {
 						// timeout has occured
 						// so we do not ack their ack,
 						// meaning the packet will be sent again
+						
+						// clear outstanding so we can send again
+						while(outstanding.size() > 0) {
+							outstanding.remove(0);
+						}
 						cSend = true;
 					}
 				}
 			}
 		}
+
+		private boolean noError(byte[] input) {
+			String check1 = byteToBitString(input[0])
+					+ byteToBitString(input[1]);
+			byte[] i2 = new byte[input.length - 2];
+			for (int i = 0; i < i2.length; i++) {
+				i2[i] = input[i + 2];
+			}
+			String check2 = getCheckSum(i2);
+			return trimAndCheck(check1, check2);
+		}
 		
+		private boolean trimAndCheck(String one, String two) {
+			int index = one.indexOf("1");
+			one = one.substring(index);
+			
+			index = two.indexOf("1");
+			two = two.substring(index);
+			
+			return one.equals(two);
+		}
+
+		private String byteToBitString(byte b) {
+			return ("0000000" + Integer.toBinaryString(0xFF & b)).replaceAll(
+					".*(.{8})$", "$1");
+		}
+
+		public String getCheckSum(byte[] input) {
+			byte[] buf = input;
+			int length = buf.length;
+			int i = 0;
+			long sum = 0;
+			while (length > 0) {
+				sum += (buf[i++] & 0xff) << 8;
+				if ((--length) == 0)
+					break;
+				sum += (buf[i++] & 0xff);
+				--length;
+			}
+
+			long x = (~((sum & 0xFFFF) + (sum >> 16))) & 0xFFFF;
+			return Long.toBinaryString(x);
+		}
 
 		public boolean getAcks(int seq) {
 			System.out.println("Got Ack for packet number " + seq);
@@ -204,10 +269,11 @@ public class Server {
 		private boolean canSend() {
 			return cSend;
 		}
+
 		public void run() {
 			FileInputStream fis = null;
 			while (r.isAlive()) {
-				while(true) {
+				while (true) {
 					if (!r.isAlive()) {
 						try {
 							fis.close();
@@ -228,10 +294,10 @@ public class Server {
 					e.printStackTrace();
 					return;
 				}
-				
+
 				if (outstanding.size() < 5) {
 
-					byte[] data = new byte[1019];
+					byte[] data = new byte[1024 - (new Header()).SIZE];
 					// determine what packet to send
 					int number = lastAck + 1;
 					while (true) {
@@ -243,7 +309,7 @@ public class Server {
 					}
 
 					try {
-						
+
 						if (map.containsKey(new Integer(number))) {
 							if (lastAck == number) {
 								cSend = false;
@@ -256,21 +322,21 @@ public class Server {
 								outstanding.add(new Integer(number));
 							}
 						} else {
-						
-						if (fis.read(data) >= data.length) {
-							map.put(new Integer(number), data);
-							SendPacket sp = new SendPacket(number, false);
-							sp.start();
-							outstanding.add(new Integer(number));
-						} else {
-							map.put(new Integer(number), data);
-							cSend = false;
-							SendPacket sp = new SendPacket(number, true);
-							sp.start();
-							outstanding.add(new Integer(number));
-							lastAckNumber = number;
-							
-						}
+
+							if (fis.read(data) >= data.length) {
+								map.put(new Integer(number), data);
+								SendPacket sp = new SendPacket(number, false);
+								sp.start();
+								outstanding.add(new Integer(number));
+							} else {
+								map.put(new Integer(number), data);
+								cSend = false;
+								SendPacket sp = new SendPacket(number, true);
+								sp.start();
+								outstanding.add(new Integer(number));
+								lastAckNumber = number;
+
+							}
 						}
 					} catch (IOException e) {
 						e.printStackTrace();
@@ -285,6 +351,8 @@ public class Server {
 
 		public void run() {
 			h = new Header(false, false, true, false, 0);
+			byte[] zero = new byte[0];
+			h.generateChecksum(zero);
 			byte[] sendData = h.setAndGetData();
 			DatagramPacket sendPacket = new DatagramPacket(sendData,
 					sendData.length, clientIP, clientPort);
@@ -311,15 +379,16 @@ public class Server {
 		}
 
 		public void run() {
-			byte[] sendData = new byte[data.length + 8];
 			Header h = new Header(false, false, last, true, index);
+			h.generateChecksum(data);
+			byte[] sendData = new byte[data.length + h.SIZE];
 			byte[] headData = h.setAndGetData();
 			for (int i = 0; i < h.SIZE; i++) {
 				sendData[i] = headData[i];
 			}
 
-			for (int i = 8; i < sendData.length; i++) {
-				sendData[i] = data[i - 8];
+			for (int i = h.SIZE; i < sendData.length; i++) {
+				sendData[i] = data[i - h.SIZE];
 			}
 
 			DatagramPacket sendPacket = new DatagramPacket(sendData,
