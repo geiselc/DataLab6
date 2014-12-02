@@ -140,8 +140,8 @@ public class Server {
 			try {
 				serverSocket.receive(receivePacket);
 			} catch (IOException e) {
-				System.out.println("No packet received yet");
-				continue;
+				e.printStackTrace();
+				return false;
 			}
 			
 			if(noError(receivePacket.getData())) {
@@ -150,8 +150,8 @@ public class Server {
 				clientIP = receivePacket.getAddress();
 
 				// get file name
-				fileName = new String(receivePacket.getData(), 2,
-						receivePacket.getLength()).trim();
+				fileName = new String(receivePacket.getData(), 0,
+						receivePacket.getLength());
 
 				lastAck++;
 				System.out.println("Received packet from " + clientIP + ":"
@@ -184,6 +184,7 @@ public class Server {
 						}
 						if (noError(receivePacket.getData())) {
 							if (getAcks(seqNum)) {
+								updateLastAck();
 								return;
 							}
 						} else {
@@ -191,13 +192,14 @@ public class Server {
 							while(outstanding.size() > 0) {
 								outstanding.remove(0);
 							}
+							updateLastAck();
 							cSend = true;
 						}
 					} catch (Exception e) {
 						// timeout has occured
 						// so we do not ack their ack,
 						// meaning the packet will be sent again
-						
+						updateLastAck();
 						// clear outstanding so we can send again
 						while(outstanding.size() > 0) {
 							outstanding.remove(0);
@@ -208,26 +210,26 @@ public class Server {
 			}
 		}
 
-		private boolean noError(byte[] input){
+		private boolean noError(byte[] input) {
 			String check1 = byteToBitString(input[0])
 					+ byteToBitString(input[1]);
-			
 			byte[] i2 = new byte[input.length - 2];
 			byte[] i3 = null;
-			for (int i = 0; i < i2.length; i++) {
+			for(int i = 0; i < i2.length; i++){
 				byte b = input[i + 2];
 				i2[i] = b;
-				if (b != 0) {
+				if(b != 0){
 					i2[i] = b;
 				} else {
 					i3 = new byte[i];
-					for(int j = 0; j < i3.length; j++) {
+					for(int j = 0; j < i3.length; j++){
 						i3[j] = i2[j];
 					}
 					break;
 				}
 			}
-			String check2 = Header.genCheckSumStatic(i3);
+			
+			String check2 = Header.genCheckSumStatic(i2);
 			return trimAndCheck(check1, check2);
 		}
 		
@@ -237,6 +239,7 @@ public class Server {
 			
 			index = two.indexOf("1");
 			two = two.substring(index);
+			
 			return one.equals(two);
 		}
 
@@ -253,18 +256,8 @@ public class Server {
 			if (outstanding.contains(new Integer(seq))) {
 				outstanding.remove(new Integer(seq));
 			}
-			// increase last ack if needed
-			if (seq == lastAck + 1) {
-				lastAck++;
-				Collections.sort(gotAcks);
-				for (int i = seq + 1; i <= gotAcks.size(); i++) {
-					if (gotAcks.get(i) == lastAck + 1) {
-						lastAck++;
-					} else {
-						break;
-					}
-				}
-			}
+			
+			updateLastAck();
 			if (lastAck == lastAckNumber) {
 				lastAckReceived = true;
 				return true;
@@ -273,11 +266,15 @@ public class Server {
 			}
 		}
 		
-		private void updateLastAck() {
-			for(int i = lastAck+1; i <= gotAcks.size(); i++) {
-				if(gotAcks.contains(new Integer(i))) {
+		private void updateLastAck(){
+			for(int i = lastAck+1; i <= gotAcks.size(); i++){
+				if(gotAcks.contains(new Integer(i))){
 					lastAck = i;
-				}
+				} else
+					break;
+			}
+			if(lastAck == lastAckNumber){
+				lastAckReceived = true;
 			}
 		}
 	}
@@ -313,28 +310,34 @@ public class Server {
 				}
 
 				if (outstanding.size() < 5) {
-
+					int lastNumber = -1;
 					byte[] data = new byte[1024 - (new Header()).SIZE];
 					// determine what packet to send
 					int number = lastAck + 1;
 					while (true) {
+						if(lastAckReceived){
+							return;
+						}
+						
+						if(number > lastAck + 5){
+							number = lastAck+1;
+						}
 						if (outstanding.contains(new Integer(number))) {
 							number++;
-						} else if (gotAcks.contains(new Integer(number))){
-							//System.out.println("error 2 " + number +" "+lastAck);
+						} else if (gotAcks.contains(new Integer(number))) {
 							number++;
-						} else if (lastAck + 5 < number) {
-							//System.out.println("error 3 " + number +" "+lastAck);
-							number = lastAck+1;
-						} else if (!canSend()) {
-							//System.out.println("Cant Send");
+						} else if((lastAck + 5) < number){
+							number = lastAck + 1;
+						} else if (!canSend()){
 							continue;
-						} else if (!r.isAlive()) {
-							//System.out.println("r is dead");
+						} else if (!r.isAlive() || lastAckReceived) {
 							return;
 						} else {
-							//System.out.println("sending");
-							break;
+							if(number == lastNumber || number > lastAckNumber){
+								number = lastAck + 1;
+							} else {
+								break;
+							}
 						}
 					}
 
@@ -351,21 +354,23 @@ public class Server {
 								sp.start();
 								outstanding.add(new Integer(number));
 							}
+							lastNumber = number;
 						} else {
-
-							if (fis.read(data) >= data.length) {
+							int l = fis.read(data);
+							if (l >= data.length) {
 								map.put(new Integer(number), data);
 								SendPacket sp = new SendPacket(number, false);
 								sp.start();
 								outstanding.add(new Integer(number));
-							} else {
+								lastNumber = number;
+							} else if(l > 0){
 								map.put(new Integer(number), data);
 								cSend = false;
 								SendPacket sp = new SendPacket(number, true);
 								sp.start();
 								outstanding.add(new Integer(number));
 								lastAckNumber = number;
-
+								lastNumber = number;
 							}
 						}
 					} catch (IOException e) {
@@ -451,3 +456,4 @@ public class Server {
 		}
 	}
 }
+
