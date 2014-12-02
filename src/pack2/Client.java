@@ -38,7 +38,16 @@ public class Client {
 			clientSocket = new DatagramSocket(CLIENT_PORT);
 			s = new Send();
 			s.start();
+			r = null;
+			while (!Client.written) {
+
+			}
 			while (s.isAlive()) {
+			}
+			if (r != null) {
+				while (r.isAlive()) {
+
+				}
 			}
 			clientSocket.close();
 			return;
@@ -57,27 +66,27 @@ public class Client {
 				r = new Receive();
 				r.start();
 				waiting();
-				}
+			}
 		}
 
-		private boolean sendFileName() {			
+		private boolean sendFileName() {
 			byte[] fileBytes = fileName.getBytes();
-			
+
 			byte[] sendData = new byte[2 + fileBytes.length];
 			String cSum = Header.genCheckSumStatic(fileBytes);
 			String str1 = cSum.substring(0, 8);
 
 			sendData[0] = (byte) Integer.parseInt(str1, 2);
 			String str2 = cSum.substring(8);
-			
+
 			sendData[1] = (byte) Integer.parseInt(str2, 2);
-			for(int i = 2; i < sendData.length; i++){
-				sendData[i] = fileBytes[i-2];
+			for (int i = 2; i < sendData.length; i++) {
+				sendData[i] = fileBytes[i - 2];
 			}
-			
+
 			DatagramPacket sendPacket = new DatagramPacket(sendData,
 					sendData.length, serverIP, serverPort);
-			
+
 			try {
 				clientSocket.send(sendPacket);
 				System.out.println("Send packet to server asking for "
@@ -110,18 +119,17 @@ public class Client {
 		public void run() {
 			byte[] ackData = new byte[1];
 			ackData[0] = (byte) num;
-			
+
 			String cSum = Header.genCheckSumStatic(ackData);
-			
+
 			byte[] sendData = new byte[3];
 			sendData[2] = (byte) num;
-			
+
 			String str1 = cSum.substring(0, 8);
 			sendData[0] = (byte) Integer.parseInt(str1, 2);
 			String str2 = cSum.substring(8);
 			sendData[1] = (byte) Integer.parseInt(str2, 2);
-			
-			
+
 			DatagramPacket sendPacket = new DatagramPacket(sendData,
 					sendData.length, serverIP, serverPort);
 			try {
@@ -137,16 +145,19 @@ public class Client {
 
 	private class Receive extends Thread {
 		public void run() {
-			while (last != data.size()) {
+			int count = 0;
+			while (true) {
 				byte[] receiveData = new byte[1024];
 				DatagramPacket receivePacket = new DatagramPacket(receiveData,
 						receiveData.length);
 				try {
+					clientSocket.setSoTimeout(5000);
 					clientSocket.receive(receivePacket);
 					Header h = new Header();
-					
-					if(noError(receivePacket.getData(), h)){
+
+					if (noError(receivePacket.getData(), h)) {
 						h = new Header(receivePacket.getData());
+						count = 0;
 						if (!h.fileExists()) {
 							System.out.println("Received packet from server");
 							System.out.println("File: " + fileName
@@ -167,7 +178,7 @@ public class Client {
 						if (h.isFin()) {
 							last = h.getSeq();
 						}
-					
+
 						if (last == data.size()) {
 							break;
 						}
@@ -175,43 +186,58 @@ public class Client {
 						System.out.println("Checksum Mismatch");
 					}
 				} catch (IOException e) {
-					//e.printStackTrace();
-					if(Client.written == true)
+					// e.printStackTrace();
+					if (Client.written == true)
 						return;
+					else {
+						if (last == data.size()) {
+							WriteFile wf = new WriteFile();
+							wf.start();
+						} else {
+							if (data.size() == 0) {
+								s = new Send();
+								s.start();
+							} else {
+								count++;
+								if (count > 2) {
+									last = data.size();
+								}
+							}
+						}
+					}
 				}
 			}
 		}
-		
-		private boolean noError(byte[] input, Header h){
+
+		private boolean noError(byte[] input, Header h) {
 			byte[] nonHead = new byte[1024 - h.SIZE];
-			for(int i = 0; i < nonHead.length; i++){
+			for (int i = 0; i < nonHead.length; i++) {
 				nonHead[i] = input[i + h.SIZE];
 			}
-			
+
 			byte[] headData = new byte[h.SIZE];
-			for(int i = 0; i < headData.length; i++){
+			for (int i = 0; i < headData.length; i++) {
 				headData[i] = input[i];
 			}
-			
+
 			h = new Header(headData);
 			String cSum = h.getCheckSum();
 			h.generateChecksum(nonHead);
 			String cSum2 = h.getCheckSum();
-			
-			
-			if(trimAndCheck(cSum, cSum2))
+
+			if (trimAndCheck(cSum, cSum2))
 				return true;
-			
+
 			return false;
 		}
-		
+
 		private boolean trimAndCheck(String one, String two) {
 			int index = one.indexOf("1");
 			one = one.substring(index);
-			
+
 			index = two.indexOf("1");
 			two = two.substring(index);
-			
+
 			return one.equals(two);
 		}
 	}
@@ -237,17 +263,12 @@ public class Client {
 			}
 			Ack ack = new Ack(h.getSeq());
 			ack.start();
-
-			if (last == data.size()) {
-				WriteFile wf = new WriteFile();
-				wf.start();
-			}
 		}
 	}
 
 	private class WriteFile extends Thread {
 		public void run() {
-			//System.out.println("Writing ... ");
+			// System.out.println("Writing ... ");
 			File file = new File(fileName);
 			FileOutputStream fos = null;
 			int tracker = 0;
@@ -260,16 +281,38 @@ public class Client {
 
 			for (int i = 0; i < data.size(); i++) {
 				byte[] b = data.get(new Integer(i + 1));
-				try {
-					//fos.write(b, tracker, b.length);
-					fos.write(b);
-				} catch (IOException e) {
-					e.printStackTrace();
+				if (i + 1 != 0) {
+
+					try {
+						fos.write(b);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					tracker += b.length;
+				} else {
+					byte[] c = null;
+					for(int j = 0; j < b.length; j++){
+						byte by = b[j];
+						if(by == 0){
+							c = new byte[j];
+							for(int k = 0; k < j; k++){
+								c[k] = b[k];
+							}
+							try {
+								fos.write(c);
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
+							break;
+						}
+					}
 				}
-				tracker += b.length;
 			}
 			try {
 				fos.flush();
+				if(!Client.written){
+					System.out.println("Wrote to disk");
+				}
 			} catch (IOException e1) {
 				e1.printStackTrace();
 			}
